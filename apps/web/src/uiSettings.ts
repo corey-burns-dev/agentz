@@ -13,6 +13,8 @@ export const DARK_THEME_PRESETS = [
 	"midnight",
 	"nord",
 	"catppuccin-mocha",
+	"dark-modern",
+	"tokyo-night",
 ] as const;
 
 export type ThemePreset = (typeof DARK_THEME_PRESETS)[number];
@@ -106,7 +108,9 @@ function getSystemDark(): boolean {
 	);
 }
 
-function readLegacyThemeMode(): ThemeMode | null {
+// Migrates from the old `agents:theme` localStorage key (pre-v8).
+// Can be removed after 2027-01.
+function migrateFromLegacyTheme(): ThemeMode | null {
 	if (typeof window === "undefined") return null;
 	const raw = window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
 	if (raw === "light" || raw === "dark" || raw === "system") {
@@ -218,14 +222,17 @@ export function normalizePersistedUISettings(
 }
 
 function parsePersistedSettings(raw: string | null): UISettings {
+	// Only read legacy storage when no new settings are stored yet —
+	// persistUISettings already removes the legacy key on every save.
+	const legacyThemeMode = raw === null ? migrateFromLegacyTheme() : null;
 	if (!raw) {
-		return normalizePersistedUISettings({}, readLegacyThemeMode());
+		return normalizePersistedUISettings({}, legacyThemeMode);
 	}
 
 	try {
-		return normalizePersistedUISettings(JSON.parse(raw), readLegacyThemeMode());
+		return normalizePersistedUISettings(JSON.parse(raw), legacyThemeMode);
 	} catch {
-		return normalizePersistedUISettings({}, readLegacyThemeMode());
+		return normalizePersistedUISettings({}, legacyThemeMode);
 	}
 }
 

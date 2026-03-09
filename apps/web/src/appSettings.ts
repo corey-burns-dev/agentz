@@ -45,6 +45,43 @@ const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<
 	),
 };
 
+type ProviderSettingsConfig = {
+	readonly customModelsKey: keyof Pick<
+		AppSettings,
+		"customCodexModels" | "customGeminiModels" | "customClaudeCodeModels"
+	>;
+	readonly binaryPathKey: keyof Pick<
+		AppSettings,
+		"codexBinaryPath" | "geminiBinaryPath" | "claudeCodeBinaryPath"
+	>;
+	readonly homePathKey: keyof Pick<
+		AppSettings,
+		"codexHomePath" | "geminiHomePath" | "claudeCodeHomePath"
+	>;
+	readonly startOptionsKey: "codex" | "gemini" | "claudeCode";
+};
+
+const PROVIDER_SETTINGS_CONFIG = {
+	codex: {
+		customModelsKey: "customCodexModels",
+		binaryPathKey: "codexBinaryPath",
+		homePathKey: "codexHomePath",
+		startOptionsKey: "codex",
+	},
+	gemini: {
+		customModelsKey: "customGeminiModels",
+		binaryPathKey: "geminiBinaryPath",
+		homePathKey: "geminiHomePath",
+		startOptionsKey: "gemini",
+	},
+	"claude-code": {
+		customModelsKey: "customClaudeCodeModels",
+		binaryPathKey: "claudeCodeBinaryPath",
+		homePathKey: "claudeCodeHomePath",
+		startOptionsKey: "claudeCode",
+	},
+} as const satisfies Record<ProviderKind, ProviderSettingsConfig>;
+
 const AppSettingsSchema = Schema.Struct({
 	codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
 		Schema.withConstructorDefault(() => Option.some("")),
@@ -68,6 +105,18 @@ const AppSettingsSchema = Schema.Struct({
 		Schema.withConstructorDefault(() => Option.some(true)),
 	),
 	enableAssistantStreaming: Schema.Boolean.pipe(
+		Schema.withConstructorDefault(() => Option.some(false)),
+	),
+	enableDesktopNotifications: Schema.Boolean.pipe(
+		Schema.withConstructorDefault(() => Option.some(false)),
+	),
+	playSoundOnAssistantReply: Schema.Boolean.pipe(
+		Schema.withConstructorDefault(() => Option.some(false)),
+	),
+	playSoundOnError: Schema.Boolean.pipe(
+		Schema.withConstructorDefault(() => Option.some(false)),
+	),
+	muteWhileWindowFocused: Schema.Boolean.pipe(
 		Schema.withConstructorDefault(() => Option.some(false)),
 	),
 	codexServiceTier: AppServiceTierSchema.pipe(
@@ -102,14 +151,7 @@ export function getCustomModelsForProvider(
 	>,
 	provider: ProviderKind,
 ): readonly string[] {
-	switch (provider) {
-		case "claude-code":
-			return settings.customClaudeCodeModels;
-		case "gemini":
-			return settings.customGeminiModels;
-		default:
-			return settings.customCodexModels;
-	}
+	return settings[PROVIDER_SETTINGS_CONFIG[provider].customModelsKey];
 }
 
 export function patchCustomModelsForProvider(
@@ -121,14 +163,7 @@ export function patchCustomModelsForProvider(
 		"customCodexModels" | "customGeminiModels" | "customClaudeCodeModels"
 	>
 > {
-	switch (provider) {
-		case "claude-code":
-			return { customClaudeCodeModels: models };
-		case "gemini":
-			return { customGeminiModels: models };
-		default:
-			return { customCodexModels: models };
-	}
+	return { [PROVIDER_SETTINGS_CONFIG[provider].customModelsKey]: models };
 }
 
 export function getProviderStartOptionsForProvider(
@@ -143,47 +178,19 @@ export function getProviderStartOptionsForProvider(
 	>,
 	provider: ProviderKind,
 ): ProviderStartOptions | undefined {
-	switch (provider) {
-		case "claude-code": {
-			const binaryPath = normalizeOptionalPath(settings.claudeCodeBinaryPath);
-			const homePath = normalizeOptionalPath(settings.claudeCodeHomePath);
-			if (!binaryPath && !homePath) {
-				return undefined;
-			}
-			return {
-				claudeCode: {
-					...(binaryPath ? { binaryPath } : {}),
-					...(homePath ? { homePath } : {}),
-				},
-			};
-		}
-		case "gemini": {
-			const binaryPath = normalizeOptionalPath(settings.geminiBinaryPath);
-			const homePath = normalizeOptionalPath(settings.geminiHomePath);
-			if (!binaryPath && !homePath) {
-				return undefined;
-			}
-			return {
-				gemini: {
-					...(binaryPath ? { binaryPath } : {}),
-					...(homePath ? { homePath } : {}),
-				},
-			};
-		}
-		default: {
-			const binaryPath = normalizeOptionalPath(settings.codexBinaryPath);
-			const homePath = normalizeOptionalPath(settings.codexHomePath);
-			if (!binaryPath && !homePath) {
-				return undefined;
-			}
-			return {
-				codex: {
-					...(binaryPath ? { binaryPath } : {}),
-					...(homePath ? { homePath } : {}),
-				},
-			};
-		}
+	const { binaryPathKey, homePathKey, startOptionsKey } =
+		PROVIDER_SETTINGS_CONFIG[provider];
+	const binaryPath = normalizeOptionalPath(settings[binaryPathKey]);
+	const homePath = normalizeOptionalPath(settings[homePathKey]);
+	if (!binaryPath && !homePath) {
+		return undefined;
 	}
+	return {
+		[startOptionsKey]: {
+			...(binaryPath ? { binaryPath } : {}),
+			...(homePath ? { homePath } : {}),
+		},
+	} as ProviderStartOptions;
 }
 
 export function resolveAppServiceTier(

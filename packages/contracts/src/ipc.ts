@@ -7,6 +7,8 @@ import type {
 	GitInitInput,
 	GitListBranchesInput,
 	GitListBranchesResult,
+	GitListIssuesInput,
+	GitListIssuesResult,
 	GitPullInput,
 	GitPullResult,
 	GitRemoveWorktreeInput,
@@ -83,6 +85,8 @@ export interface DesktopUpdateActionResult {
 export interface DesktopBridge {
 	getWsUrl: () => string | null;
 	pickFolder: () => Promise<string | null>;
+	/** Returns absolute paths of immediate child directories. May return [] or throw if path is invalid or not readable. */
+	listChildDirectories: (parentPath: string) => Promise<string[]>;
 	confirm: (message: string) => Promise<boolean>;
 	showContextMenu: <T extends string>(
 		items: readonly ContextMenuItem<T>[],
@@ -99,6 +103,8 @@ export interface DesktopBridge {
 export interface NativeApi {
 	dialogs: {
 		pickFolder: () => Promise<string | null>;
+		/** Returns absolute paths of immediate child directories. Returns [] when not in desktop shell or path invalid. */
+		listChildDirectories: (parentPath: string) => Promise<string[]>;
 		confirm: (message: string) => Promise<boolean>;
 	};
 	terminal: {
@@ -136,6 +142,7 @@ export interface NativeApi {
 		init: (input: GitInitInput) => Promise<void>;
 		// Stacked action API
 		pull: (input: GitPullInput) => Promise<GitPullResult>;
+		listIssues: (input: GitListIssuesInput) => Promise<GitListIssuesResult>;
 		status: (input: GitStatusInput) => Promise<GitStatusResult>;
 		runStackedAction: (
 			input: GitRunStackedActionInput,

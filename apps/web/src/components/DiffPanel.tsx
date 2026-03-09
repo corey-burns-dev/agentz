@@ -8,11 +8,15 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import {
+	BetweenHorizontalStartIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	Columns2Icon,
+	HashIcon,
+	ListTreeIcon,
 	Rows3Icon,
 	SearchIcon,
+	WrapTextIcon,
 } from "lucide-react";
 import {
 	type CSSProperties,
@@ -46,7 +50,10 @@ import {
 	useUISettings,
 } from "../uiSettings";
 import { Input } from "./ui/input";
+import { Popover, PopoverPopup, PopoverTrigger } from "./ui/popover";
+import { toggleVariants } from "./ui/toggle";
 import { Toggle, ToggleGroup } from "./ui/toggle-group";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 type DiffRenderMode = "stacked" | "split";
 type DiffThemeType = "light" | "dark";
@@ -138,6 +145,18 @@ const DIFF_SIZE_LABELS: Record<DiffSizeOption, string> = {
 	comfortable: "Large",
 };
 
+const DIFF_SIZE_INDEX_BY_OPTION: Record<DiffSizeOption, number> = {
+	compact: 0,
+	balanced: 1,
+	comfortable: 2,
+};
+
+const DIFF_SIZE_OPTION_BY_INDEX: Record<number, DiffSizeOption> = {
+	0: "compact",
+	1: "balanced",
+	2: "comfortable",
+};
+
 const DIFF_SIZE_TOKENS: Record<
 	DiffSizeOption,
 	{
@@ -206,6 +225,13 @@ interface DiffFileItem {
 	name: string;
 	path: string;
 	type: FileDiffMetadata["type"];
+}
+
+interface DiffNavigatorFileButtonProps {
+	item: DiffFileItem;
+	selected: boolean;
+	onSelect: (filePath: string) => void;
+	variant?: "compact" | "sidebar";
 }
 
 function getRenderablePatch(
@@ -303,6 +329,43 @@ function scrollToDiffFileInViewport(
 		viewport.querySelectorAll<HTMLElement>("[data-diff-file-path]"),
 	).find((element) => element.dataset.diffFilePath === filePath);
 	target?.scrollIntoView({ block: "nearest" });
+}
+
+function DiffNavigatorFileButton({
+	item,
+	selected,
+	onSelect,
+	variant = "compact",
+}: DiffNavigatorFileButtonProps) {
+	return (
+		<button
+			type="button"
+			className={cn(
+				"flex w-full items-start justify-between gap-2 rounded-lg text-left transition-colors",
+				variant === "sidebar"
+					? "px-2.5 py-2"
+					: "border border-border/65 bg-background/55 px-2.5 py-2",
+				selected
+					? "bg-primary/10 text-foreground ring-1 ring-primary/45"
+					: variant === "sidebar"
+						? "text-muted-foreground hover:bg-accent/65 hover:text-foreground"
+						: "text-muted-foreground hover:border-border hover:bg-accent/55 hover:text-foreground",
+			)}
+			onClick={() => onSelect(item.path)}
+			title={item.path}
+		>
+			<div className="min-w-0 flex-1">
+				<div className="truncate text-[12px] font-medium">{item.name}</div>
+				<div className="truncate text-2xs text-muted-foreground/72">
+					{item.directory || item.type}
+				</div>
+			</div>
+			<div className="flex shrink-0 items-center gap-1 text-2xs font-medium tabular-nums">
+				<span className="text-emerald-500/90">+{item.additions}</span>
+				<span className="text-rose-500/90">-{item.deletions}</span>
+			</div>
+		</button>
+	);
 }
 
 interface DiffPanelProps {
@@ -521,8 +584,16 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 	const canShowFileNavigator =
 		settings.diffShowFileNavigator && visibleDiffFileItems.length > 1;
 	const showSidebarNavigator =
-		canShowFileNavigator && panelWidth >= DIFF_SIDEBAR_NAV_BREAKPOINT;
-	const showStripNavigator = canShowFileNavigator && !showSidebarNavigator;
+		canShowFileNavigator &&
+		mode !== "inline" &&
+		panelWidth >= DIFF_SIDEBAR_NAV_BREAKPOINT;
+	const showCompactNavigator = canShowFileNavigator && !showSidebarNavigator;
+	const forcedBehaviorHints = [
+		shouldForceStacked ? "Auto stacked" : null,
+		shouldForceWrap ? "Auto wrap" : null,
+		shouldForceHideLineNumbers ? "Hide lines" : null,
+	].filter((value): value is string => value !== null);
+	const diffSizeSliderValue = DIFF_SIZE_INDEX_BY_OPTION[settings.diffSize];
 	const diffSurfaceStyle = useMemo(() => {
 		const preset = DIFF_SIZE_TOKENS[settings.diffSize];
 		const widthScale =
@@ -802,7 +873,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 									: "border-border/70 bg-background/70 text-muted-foreground/80 hover:border-border hover:text-foreground/80",
 							)}
 						>
-							<div className="text-[10px] leading-tight font-medium">
+							<div className="text-2xs leading-tight font-medium">
 								All turns
 							</div>
 						</div>
@@ -826,13 +897,13 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 								)}
 							>
 								<div className="flex items-center gap-1">
-									<span className="text-[10px] leading-tight font-medium">
+									<span className="text-2xs leading-tight font-medium">
 										Turn{" "}
 										{summary.checkpointTurnCount ??
 											inferredCheckpointTurnCountByTurnId[summary.turnId] ??
 											"?"}
 									</span>
-									<span className="text-[9px] leading-tight opacity-70">
+									<span className="text-3xs leading-tight opacity-70">
 										{formatTurnChipTimestamp(summary.completedAt)}
 									</span>
 								</div>
@@ -928,157 +999,219 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 					) : renderablePatch.kind === "files" ? (
 						<div className="flex h-full min-h-0 flex-col gap-2 p-2">
 							<div className="rounded-xl border border-border/70 bg-card/42 px-3 py-2">
-								<div className="flex flex-wrap items-center gap-2">
-									<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground/72">
-										<span className="rounded-full border border-border/70 bg-background/75 px-2 py-0.5 font-medium text-foreground/88">
-											{selectionLabel}
-										</span>
-										<span>
-											{normalizedFileQuery.length > 0
-												? `${visibleDiffFileItems.length} of ${diffFileItems.length} files`
-												: `${diffFileItems.length} files`}
-										</span>
-										<span className="font-medium text-emerald-500/90">
-											+{visibleFileStats.additions}
-										</span>
-										<span className="font-medium text-rose-500/90">
-											-{visibleFileStats.deletions}
-										</span>
-										{shouldForceStacked && (
-											<span>
-												Split view collapses automatically on narrow panels.
+								<div className="flex flex-col gap-3 xl:flex-row xl:items-start">
+									<div className="min-w-0 flex-1">
+										<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground/72">
+											<span className="rounded-full border border-border/70 bg-background/75 px-2 py-0.5 font-medium text-foreground/88">
+												{selectionLabel}
 											</span>
-										)}
-										{!shouldForceStacked && shouldForceWrap && (
 											<span>
-												Wrapping is enabled automatically on narrow panels.
+												{normalizedFileQuery.length > 0
+													? `${visibleDiffFileItems.length} of ${diffFileItems.length} files`
+													: `${diffFileItems.length} files`}
 											</span>
-										)}
-										{shouldForceHideLineNumbers && (
-											<span>
-												Line numbers hide automatically on the smallest widths.
+											<span className="font-medium text-emerald-500/90">
+												+{visibleFileStats.additions}
 											</span>
-										)}
+											<span className="font-medium text-rose-500/90">
+												-{visibleFileStats.deletions}
+											</span>
+											{forcedBehaviorHints.map((hint) => (
+												<span
+													key={hint}
+													className="rounded-full border border-border/60 bg-background/55 px-2 py-0.5 text-2xs font-medium text-muted-foreground/88"
+												>
+													{hint}
+												</span>
+											))}
+										</div>
+										<div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center">
+											<div className="relative min-w-0 flex-1">
+												<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
+												<Input
+													aria-label="Filter changed files"
+													className="rounded-lg pl-8"
+													nativeInput
+													placeholder="Filter changed files"
+													size="sm"
+													type="search"
+													value={fileQuery}
+													onChange={(event) => setFileQuery(event.target.value)}
+												/>
+											</div>
+											<div className="flex items-center gap-1 rounded-lg border border-border/70 bg-background/65 p-1">
+												<Popover>
+													<Tooltip>
+														<PopoverTrigger
+															className={cn(
+																toggleVariants({
+																	variant: "outline",
+																	size: "xs",
+																}),
+															)}
+															render={
+																<TooltipTrigger
+																	render={
+																		<button
+																			type="button"
+																			aria-label="Adjust density"
+																		/>
+																	}
+																/>
+															}
+														>
+															<BetweenHorizontalStartIcon className="size-3" />
+														</PopoverTrigger>
+														<TooltipPopup side="top">
+															Adjust density
+														</TooltipPopup>
+													</Tooltip>
+													<PopoverPopup
+														align="end"
+														className="w-56 p-3 shadow-xl"
+														side="bottom"
+														sideOffset={8}
+													>
+														<div className="mb-3 flex items-center justify-between gap-2 text-2xs font-medium tracking-[0.12em] text-muted-foreground/68 uppercase">
+															<span className="inline-flex items-center gap-1.5">
+																<BetweenHorizontalStartIcon className="size-3" />
+																Density
+															</span>
+															<span className="text-foreground/85 normal-case tracking-normal">
+																{DIFF_SIZE_LABELS[settings.diffSize]}
+															</span>
+														</div>
+														<input
+															type="range"
+															min={0}
+															max={DIFF_SIZE_OPTIONS.length - 1}
+															step={1}
+															value={diffSizeSliderValue}
+															onChange={(event) => {
+																const next =
+																	DIFF_SIZE_OPTION_BY_INDEX[
+																		Number(event.target.value)
+																	];
+																if (next) {
+																	updateUISettings({ diffSize: next });
+																}
+															}}
+															className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-border accent-primary"
+															aria-label="Diff density"
+															aria-valuetext={
+																DIFF_SIZE_LABELS[settings.diffSize]
+															}
+														/>
+														<div className="mt-2 flex items-center justify-between text-2xs text-muted-foreground/68">
+															<span>Tight</span>
+															<span>Balanced</span>
+															<span>Large</span>
+														</div>
+													</PopoverPopup>
+												</Popover>
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Toggle
+																aria-label="Toggle changed files navigator"
+																pressed={settings.diffShowFileNavigator}
+																size="xs"
+																variant="outline"
+																onPressedChange={(pressed) =>
+																	updateUISettings({
+																		diffShowFileNavigator: pressed,
+																	})
+																}
+															>
+																<ListTreeIcon className="size-3" />
+															</Toggle>
+														}
+													/>
+													<TooltipPopup side="top">
+														{settings.diffShowFileNavigator
+															? "Hide changed files navigator"
+															: "Show changed files navigator"}
+													</TooltipPopup>
+												</Tooltip>
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Toggle
+																aria-label="Wrap long lines"
+																disabled={shouldForceWrap}
+																pressed={settings.diffWrap}
+																size="xs"
+																variant="outline"
+																onPressedChange={(pressed) =>
+																	updateUISettings({ diffWrap: pressed })
+																}
+															>
+																<WrapTextIcon className="size-3" />
+															</Toggle>
+														}
+													/>
+													<TooltipPopup side="top">
+														{shouldForceWrap
+															? "Wrapping is enabled automatically on narrow panels."
+															: settings.diffWrap
+																? "Disable line wrapping"
+																: "Wrap long lines"}
+													</TooltipPopup>
+												</Tooltip>
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Toggle
+																aria-label="Show line numbers"
+																disabled={shouldForceHideLineNumbers}
+																pressed={settings.diffShowLineNumbers}
+																size="xs"
+																variant="outline"
+																onPressedChange={(pressed) =>
+																	updateUISettings({
+																		diffShowLineNumbers: pressed,
+																	})
+																}
+															>
+																<HashIcon className="size-3" />
+															</Toggle>
+														}
+													/>
+													<TooltipPopup side="top">
+														{shouldForceHideLineNumbers
+															? "Line numbers hide automatically on the smallest widths."
+															: settings.diffShowLineNumbers
+																? "Hide line numbers"
+																: "Show line numbers"}
+													</TooltipPopup>
+												</Tooltip>
+											</div>
+										</div>
 									</div>
-									<div className="flex flex-wrap items-center gap-1.5">
-										<Toggle
-											aria-label="Toggle changed files navigator"
-											pressed={settings.diffShowFileNavigator}
-											size="xs"
-											variant="outline"
-											onPressedChange={(pressed) =>
-												updateUISettings({
-													diffShowFileNavigator: pressed,
-												})
-											}
-										>
-											Files
-										</Toggle>
-										<Toggle
-											aria-label="Wrap long lines"
-											disabled={shouldForceWrap}
-											pressed={settings.diffWrap}
-											size="xs"
-											variant="outline"
-											onPressedChange={(pressed) =>
-												updateUISettings({ diffWrap: pressed })
-											}
-										>
-											Wrap
-										</Toggle>
-										<Toggle
-											aria-label="Show line numbers"
-											disabled={shouldForceHideLineNumbers}
-											pressed={settings.diffShowLineNumbers}
-											size="xs"
-											variant="outline"
-											onPressedChange={(pressed) =>
-												updateUISettings({
-													diffShowLineNumbers: pressed,
-												})
-											}
-										>
-											Lines
-										</Toggle>
-									</div>
-								</div>
-								<div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center">
-									<div className="relative min-w-0 flex-1">
-										<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
-										<Input
-											aria-label="Filter changed files"
-											className="rounded-lg pl-8"
-											nativeInput
-											placeholder="Filter changed files"
-											size="sm"
-											type="search"
-											value={fileQuery}
-											onChange={(event) => setFileQuery(event.target.value)}
-										/>
-									</div>
-									<ToggleGroup
-										className="shrink-0"
-										size="xs"
-										variant="outline"
-										value={[settings.diffSize]}
-										onValueChange={(value) => {
-											const next = value[0];
-											if (DIFF_SIZE_OPTIONS.includes(next as DiffSizeOption)) {
-												updateUISettings({
-													diffSize: next as DiffSizeOption,
-												});
-											}
-										}}
-									>
-										{DIFF_SIZE_OPTIONS.map((option) => (
-											<Toggle
-												key={option}
-												aria-label={`${DIFF_SIZE_LABELS[option]} diff sizing`}
-												value={option}
-											>
-												{DIFF_SIZE_LABELS[option]}
-											</Toggle>
-										))}
-									</ToggleGroup>
 								</div>
 							</div>
 
-							{showStripNavigator && (
-								<div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-									<div className="flex w-max gap-1.5 px-0.5">
-										{visibleDiffFileItems.map((item) => (
-											<button
-												key={item.path}
-												type="button"
-												className={cn(
-													"flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
-													selectedFilePath === item.path
-														? "border-primary/70 bg-primary/10 text-foreground"
-														: "border-border/70 bg-card/32 text-muted-foreground hover:border-border hover:text-foreground",
-												)}
-												onClick={() => selectDiffFile(item.path)}
-												title={item.path}
-											>
-												<div className="min-w-0">
-													<div className="max-w-48 truncate text-[11px] font-medium text-inherit">
-														{item.name}
-													</div>
-													{item.directory.length > 0 && (
-														<div className="max-w-48 truncate text-[10px] text-muted-foreground/70">
-															{item.directory}
-														</div>
-													)}
-												</div>
-												<div className="flex items-center gap-1 text-[10px] font-medium tabular-nums">
-													<span className="text-emerald-500/90">
-														+{item.additions}
-													</span>
-													<span className="text-rose-500/90">
-														-{item.deletions}
-													</span>
-												</div>
-											</button>
-										))}
+							{showCompactNavigator && (
+								<div className="overflow-hidden rounded-xl border border-border/70 bg-card/36">
+									<div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
+										<div className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground/68 uppercase">
+											Changed files
+										</div>
+										<div className="text-2xs text-muted-foreground/68 tabular-nums">
+											{visibleDiffFileItems.length}
+										</div>
+									</div>
+									<div className="max-h-72 overflow-auto p-2">
+										<div className="space-y-1.5">
+											{visibleDiffFileItems.map((item) => (
+												<DiffNavigatorFileButton
+													key={item.path}
+													item={item}
+													selected={selectedFilePath === item.path}
+													onSelect={selectDiffFile}
+												/>
+											))}
+										</div>
 									</div>
 								</div>
 							)}
@@ -1092,42 +1225,20 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 								)}
 							>
 								{showSidebarNavigator && (
-									<aside className="min-h-0 overflow-hidden rounded-xl border border-border/70 bg-card/36">
+									<aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card/36">
 										<div className="border-b border-border/70 px-3 py-2 text-[11px] font-medium tracking-[0.12em] text-muted-foreground/68 uppercase">
 											Changed files
 										</div>
-										<div className="min-h-0 overflow-auto p-2">
+										<div className="min-h-0 flex-1 overflow-auto p-2">
 											<div className="space-y-1">
 												{visibleDiffFileItems.map((item) => (
-													<button
+													<DiffNavigatorFileButton
 														key={item.path}
-														type="button"
-														className={cn(
-															"flex w-full items-start justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
-															selectedFilePath === item.path
-																? "bg-primary/10 text-foreground ring-1 ring-primary/45"
-																: "text-muted-foreground hover:bg-accent/65 hover:text-foreground",
-														)}
-														onClick={() => selectDiffFile(item.path)}
-														title={item.path}
-													>
-														<div className="min-w-0 flex-1">
-															<div className="truncate text-[12px] font-medium">
-																{item.name}
-															</div>
-															<div className="truncate text-[10px] text-muted-foreground/72">
-																{item.directory || item.type}
-															</div>
-														</div>
-														<div className="flex shrink-0 items-center gap-1 text-[10px] font-medium tabular-nums">
-															<span className="text-emerald-500/90">
-																+{item.additions}
-															</span>
-															<span className="text-rose-500/90">
-																-{item.deletions}
-															</span>
-														</div>
-													</button>
+														item={item}
+														selected={selectedFilePath === item.path}
+														onSelect={selectDiffFile}
+														variant="sidebar"
+													/>
 												))}
 											</div>
 										</div>

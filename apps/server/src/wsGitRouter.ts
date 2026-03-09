@@ -28,6 +28,11 @@ export function createGitRouter(context: GitRouterContext): WsRouteHandler {
 					.pullCurrentBranch(stripRequestTag(request.body).cwd)
 					.pipe(Effect.mapError(toRouteRequestError));
 
+			case WS_METHODS.gitListIssues:
+				return context.gitManager
+					.listIssues(stripRequestTag(request.body))
+					.pipe(Effect.mapError(toRouteRequestError));
+
 			case WS_METHODS.gitRunStackedAction:
 				return context.gitManager
 					.runStackedAction(stripRequestTag(request.body))

@@ -16,6 +16,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_ws_url,
             commands::pick_folder,
+            commands::list_child_directories,
             commands::confirm,
             commands::show_context_menu,
             commands::open_external,

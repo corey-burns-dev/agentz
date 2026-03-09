@@ -65,11 +65,24 @@ interface PlanSidebarProps {
 		ProviderKind,
 		ReadonlyArray<{ slug: string; name: string }>
 	>;
+	availableProviders: ReadonlyArray<{
+		value: ProviderKind;
+		label: string;
+		available: true;
+	}>;
 	selectedServiceTierSetting: AppServiceTier;
 	onImplementationProviderModelChange: (
 		provider: ProviderKind,
 		model: ModelSlug,
 	) => void;
+	/** When true, user can hand off the plan in this thread (thread is finished). */
+	threadCanSwitchProvider?: boolean;
+	/** Called when user clicks "Hand off in this thread": sets composer provider/model and prefills plan prompt. */
+	onHandOffInThread?: (params: {
+		provider: ProviderKind;
+		model: ModelSlug;
+		planMarkdown: string;
+	}) => void;
 }
 
 const PlanSidebar = memo(function PlanSidebar({
@@ -81,8 +94,11 @@ const PlanSidebar = memo(function PlanSidebar({
 	implementationProvider,
 	implementationModelForPicker,
 	modelOptionsByProvider,
+	availableProviders,
 	selectedServiceTierSetting,
 	onImplementationProviderModelChange,
+	threadCanSwitchProvider = false,
+	onHandOffInThread,
 }: PlanSidebarProps) {
 	const [proposedPlanExpanded, setProposedPlanExpanded] = useState(false);
 	const [isSavingToWorkspace, setIsSavingToWorkspace] = useState(false);
@@ -146,7 +162,7 @@ const PlanSidebar = memo(function PlanSidebar({
 				<div className="flex items-center gap-2">
 					<Badge
 						variant="secondary"
-						className="rounded-md bg-primary/10 px-1.5 py-0 text-[10px] font-semibold tracking-wide text-primary uppercase"
+						className="rounded-md bg-primary/10 px-1.5 py-0 text-2xs font-semibold tracking-wide text-primary uppercase"
 					>
 						Plan
 					</Badge>
@@ -205,7 +221,7 @@ const PlanSidebar = memo(function PlanSidebar({
 					{/* Implementation provider: which AI runs the new thread when user clicks "Implement in new thread". */}
 					{planMarkdown ? (
 						<div className="space-y-1.5">
-							<p className="text-[10px] font-semibold tracking-widest text-muted-foreground/40 uppercase">
+							<p className="text-2xs font-semibold tracking-widest text-muted-foreground/40 uppercase">
 								Implementation provider
 							</p>
 							<ProviderModelPicker
@@ -213,9 +229,26 @@ const PlanSidebar = memo(function PlanSidebar({
 								model={implementationModelForPicker}
 								lockedProvider={null}
 								modelOptionsByProvider={modelOptionsByProvider}
+								availableProviders={availableProviders}
 								serviceTierSetting={selectedServiceTierSetting}
 								onProviderModelChange={onImplementationProviderModelChange}
 							/>
+							{threadCanSwitchProvider && onHandOffInThread ? (
+								<Button
+									variant="secondary"
+									size="sm"
+									className="w-full"
+									onClick={() => {
+										onHandOffInThread({
+											provider: implementationProvider,
+											model: implementationModelForPicker,
+											planMarkdown,
+										});
+									}}
+								>
+									Hand off in this thread
+								</Button>
+							) : null}
 						</div>
 					) : null}
 
@@ -229,7 +262,7 @@ const PlanSidebar = memo(function PlanSidebar({
 					{/* Plan Steps */}
 					{activePlan && activePlan.steps.length > 0 ? (
 						<div className="space-y-1">
-							<p className="mb-2 text-[10px] font-semibold tracking-widest text-muted-foreground/40 uppercase">
+							<p className="mb-2 text-2xs font-semibold tracking-widest text-muted-foreground/40 uppercase">
 								Steps
 							</p>
 							{activePlan.steps.map((step) => (
@@ -264,6 +297,8 @@ const PlanSidebar = memo(function PlanSidebar({
 						<div className="space-y-2">
 							<button
 								type="button"
+								aria-expanded={proposedPlanExpanded}
+								aria-controls="plan-markdown-content"
 								className="group flex w-full items-center gap-1.5 text-left"
 								onClick={() => setProposedPlanExpanded((v) => !v)}
 							>
@@ -272,12 +307,15 @@ const PlanSidebar = memo(function PlanSidebar({
 								) : (
 									<ChevronRightIcon className="size-3 shrink-0 text-muted-foreground/40 transition-transform" />
 								)}
-								<span className="text-[10px] font-semibold tracking-widest text-muted-foreground/40 uppercase group-hover:text-muted-foreground/60">
+								<span className="text-2xs font-semibold tracking-widest text-muted-foreground/40 uppercase group-hover:text-muted-foreground/60">
 									{planTitle ?? "Full Plan"}
 								</span>
 							</button>
 							{proposedPlanExpanded ? (
-								<div className="rounded-lg border border-border/50 bg-background/50 p-3">
+								<div
+									id="plan-markdown-content"
+									className="rounded-lg border border-border/50 bg-background/50 p-3"
+								>
 									<ChatMarkdown
 										text={planMarkdown}
 										cwd={markdownCwd}

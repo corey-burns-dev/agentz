@@ -1829,6 +1829,7 @@ describe("WebSocket Server", () => {
 		};
 
 		const status = vi.fn(() => Effect.succeed(statusResult));
+		const listIssues = vi.fn(() => Effect.succeed({ issues: [] }));
 		const runStackedAction = vi.fn(
 			() =>
 				Effect.void as unknown as Effect.Effect<
@@ -1836,7 +1837,11 @@ describe("WebSocket Server", () => {
 					GitManagerServiceError
 				>,
 		);
-		const gitManager: GitManagerShape = { status, runStackedAction };
+		const gitManager: GitManagerShape = {
+			listIssues,
+			status,
+			runStackedAction,
+		};
 
 		server = await createTestServer({ cwd: "/test", gitManager });
 		const addr = server.address();
@@ -1864,6 +1869,7 @@ describe("WebSocket Server", () => {
 			),
 		);
 		const gitManager: GitManagerShape = {
+			listIssues: vi.fn(() => Effect.succeed({ issues: [] })),
 			status: vi.fn(
 				() =>
 					Effect.void as unknown as Effect.Effect<

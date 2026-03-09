@@ -381,7 +381,7 @@ const ChangedFilesTree = memo(function ChangedFilesTree(props: {
 							{node.name}
 						</span>
 						{hasNonZeroStat(node.stat) && (
-							<span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums">
+							<span className="ml-auto shrink-0 font-mono text-2xs tabular-nums">
 								<DiffStatLabel
 									additions={node.stat.additions}
 									deletions={node.stat.deletions}
@@ -419,7 +419,7 @@ const ChangedFilesTree = memo(function ChangedFilesTree(props: {
 					{node.name}
 				</span>
 				{node.stat && (
-					<span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums">
+					<span className="ml-auto shrink-0 font-mono text-2xs tabular-nums">
 						<DiffStatLabel
 							additions={node.stat.additions}
 							deletions={node.stat.deletions}
@@ -964,13 +964,13 @@ const MessagesTimeline = memo(function MessagesTimeline({
 					return (
 						<div className="rounded-lg border border-border/80 bg-card/45 px-3 py-2">
 							<div className="mb-1.5 flex items-center justify-between gap-3">
-								<p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
+								<p className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/65">
 									{groupLabel}
 								</p>
 								{hasOverflow && (
 									<button
 										type="button"
-										className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55 transition-colors duration-150 hover:text-muted-foreground/80"
+										className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/55 transition-colors duration-150 hover:text-muted-foreground/80"
 										onClick={() => onToggleWorkGroup(groupId)}
 									>
 										{isExpanded ? "Show less" : `Show ${hiddenCount} more`}
@@ -1003,14 +1003,14 @@ const MessagesTimeline = memo(function MessagesTimeline({
 															.map((filePath) => (
 																<span
 																	key={`${workEntry.id}:${filePath}`}
-																	className="rounded-md border border-border/70 bg-background/65 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/85"
+																	className="rounded-md border border-border/70 bg-background/65 px-1.5 py-0.5 font-mono text-2xs text-muted-foreground/85"
 																	title={filePath}
 																>
 																	{filePath}
 																</span>
 															))}
 														{workEntry.changedFiles.length > 6 && (
-															<span className="px-1 text-[10px] text-muted-foreground/65">
+															<span className="px-1 text-2xs text-muted-foreground/65">
 																+{workEntry.changedFiles.length - 6} more
 															</span>
 														)}
@@ -1105,7 +1105,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
 											</Button>
 										)}
 									</div>
-									<p className="text-right text-[10px] text-muted-foreground/30">
+									<p className="text-right text-2xs text-muted-foreground/30">
 										{formatTimestamp(row.message.createdAt)}
 									</p>
 								</div>
@@ -1125,7 +1125,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
 							{row.showCompletionDivider && (
 								<div className="my-3 flex items-center gap-3">
 									<span className="h-px flex-1 bg-border" />
-									<span className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+									<span className="rounded-full border border-border bg-background px-2.5 py-1 text-2xs uppercase tracking-[0.14em] text-muted-foreground/80">
 										{completionSummary
 											? `Response • ${completionSummary}`
 											: "Response"}
@@ -1153,7 +1153,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
 									return (
 										<div className="mt-2 rounded-lg border border-border/80 bg-card/45 p-2.5">
 											<div className="mb-1.5 flex items-center justify-between gap-2">
-												<p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
+												<p className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/65">
 													<span>Changed files ({changedFileCountLabel})</span>
 													{hasNonZeroStat(summaryStat) && (
 														<>
@@ -1204,7 +1204,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
 										</div>
 									);
 								})()}
-								<p className="mt-1.5 text-[10px] text-muted-foreground/30">
+								<p className="mt-1.5 text-2xs text-muted-foreground/30">
 									{formatMessageMeta(
 										row.message.createdAt,
 										row.message.streaming
@@ -1328,6 +1328,9 @@ export function MessageList(props: MessageListProps) {
 	return (
 		<div
 			ref={props.scrollContainerRef}
+			role="log"
+			aria-live="polite"
+			aria-label="Conversation messages"
 			className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-5 sm:py-4"
 			onScroll={props.onScroll}
 			onClickCapture={props.onClickCapture}

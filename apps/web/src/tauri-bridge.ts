@@ -33,6 +33,8 @@ if (tauri) {
 	const bridge: DesktopBridge = {
 		getWsUrl: () => cachedWsUrl,
 		pickFolder: () => invoke<string | null>("pick_folder"),
+		listChildDirectories: (parentPath: string) =>
+			invoke<string[]>("list_child_directories", { parentPath }),
 		confirm: (message: string) => invoke<boolean>("confirm", { message }),
 		showContextMenu: <T extends string>(
 			items: readonly { id: T; label: string; destructive?: boolean }[],

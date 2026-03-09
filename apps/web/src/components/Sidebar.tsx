@@ -357,6 +357,7 @@ export default function Sidebar() {
 	const [addingProject, setAddingProject] = useState(false);
 	const [newCwd, setNewCwd] = useState("");
 	const [isPickingFolder, setIsPickingFolder] = useState(false);
+	const [isImportingFolder, setIsImportingFolder] = useState(false);
 	const [isAddingProject, setIsAddingProject] = useState(false);
 	const [addProjectError, setAddProjectError] = useState<string | null>(null);
 	const [renamingThreadId, setRenamingThreadId] = useState<ThreadId | null>(
@@ -655,6 +656,87 @@ export default function Sidebar() {
 		}
 		setIsPickingFolder(false);
 	};
+
+	const handleImportFolderOfProjects = useCallback(async () => {
+		const api = readNativeApi();
+		if (!api || isImportingFolder || !isDesktopShell) return;
+		setIsImportingFolder(true);
+		setAddProjectError(null);
+		try {
+			const pickedPath = await api.dialogs.pickFolder();
+			if (!pickedPath) {
+				setIsImportingFolder(false);
+				return;
+			}
+			const childPaths = await api.dialogs.listChildDirectories(pickedPath);
+			let added = 0;
+			let skipped = 0;
+			let firstAddedProjectId: ProjectId | null = null;
+			for (const cwd of childPaths) {
+				if (projects.some((p) => p.cwd === cwd)) {
+					skipped += 1;
+					continue;
+				}
+				const projectId = newProjectId();
+				const createdAt = new Date().toISOString();
+				const title = cwd.split(/[/\\]/).findLast(isNonEmptyString) ?? cwd;
+				try {
+					await api.orchestration.dispatchCommand({
+						type: "project.create",
+						commandId: newCommandId(),
+						projectId,
+						title,
+						workspaceRoot: cwd,
+						defaultModel: DEFAULT_MODEL_BY_PROVIDER.codex,
+						createdAt,
+					});
+					await handleNewThread(projectId).catch(() => undefined);
+					added += 1;
+					if (!firstAddedProjectId) firstAddedProjectId = projectId;
+				} catch {
+					// Continue with other projects; toast summary at the end
+				}
+			}
+			if (firstAddedProjectId) {
+				focusMostRecentThreadForProject(firstAddedProjectId);
+			}
+			if (added > 0) {
+				toastManager.add({
+					type: "success",
+					title:
+						skipped > 0
+							? `Added ${added} project${added === 1 ? "" : "s"}, ${skipped} already present`
+							: `Added ${added} project${added === 1 ? "" : "s"}`,
+				});
+			} else if (childPaths.length === 0) {
+				toastManager.add({
+					type: "info",
+					title: "No subfolders found",
+					description: "The selected folder has no immediate subdirectories.",
+				});
+			} else if (skipped === childPaths.length) {
+				toastManager.add({
+					type: "info",
+					title: "All projects already added",
+					description: `${skipped} folder${skipped === 1 ? "" : "s"} already in the list.`,
+				});
+			} else {
+				toastManager.add({
+					type: "error",
+					title: "Could not add projects",
+					description:
+						"Adding one or more projects failed. Try adding them individually.",
+				});
+			}
+		} finally {
+			setIsImportingFolder(false);
+		}
+	}, [
+		focusMostRecentThreadForProject,
+		handleNewThread,
+		isImportingFolder,
+		projects,
+	]);
 
 	const cancelRename = useCallback(() => {
 		setRenamingThreadId(null);
@@ -1218,7 +1300,7 @@ export default function Sidebar() {
 			<SidebarContent className="gap-0">
 				<SidebarGroup className="px-2 py-2">
 					<div className="mb-1 flex items-center justify-between px-2">
-						<span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+						<span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground/60">
 							Projects
 						</span>
 						<Tooltip>
@@ -1244,15 +1326,34 @@ export default function Sidebar() {
 					{addingProject && (
 						<div className="mb-2 px-1">
 							{isDesktopShell && (
-								<button
-									type="button"
-									className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-									onClick={() => void handlePickFolder()}
-									disabled={isPickingFolder || isAddingProject}
-								>
-									<FolderIcon className="size-3.5" />
-									{isPickingFolder ? "Picking folder..." : "Browse for folder"}
-								</button>
+								<div className="mb-1.5 flex gap-1.5">
+									<button
+										type="button"
+										className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+										onClick={() => void handlePickFolder()}
+										disabled={
+											isPickingFolder || isAddingProject || isImportingFolder
+										}
+									>
+										<FolderIcon className="size-3.5" />
+										{isPickingFolder
+											? "Picking folder..."
+											: "Browse for folder"}
+									</button>
+									<button
+										type="button"
+										className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+										onClick={() => void handleImportFolderOfProjects()}
+										disabled={
+											isPickingFolder || isAddingProject || isImportingFolder
+										}
+									>
+										<FolderIcon className="size-3.5" />
+										{isImportingFolder
+											? "Importing..."
+											: "Import folder of projects"}
+									</button>
+								</div>
 							)}
 							<div className="flex gap-1.5">
 								<input
@@ -1338,7 +1439,7 @@ export default function Sidebar() {
 												render={
 													<SidebarMenuButton
 														size="sm"
-														className="gap-2 px-2 py-1.5 text-left hover:!bg-transparent hover:!text-sidebar-foreground group-hover/project-header:!bg-transparent group-hover/project-header:!text-sidebar-foreground"
+														className="gap-2 px-2 py-1.5 text-left hover:bg-transparent! hover:text-sidebar-foreground! group-hover/project-header:bg-transparent! group-hover/project-header:text-sidebar-foreground!"
 													/>
 												}
 												onContextMenu={(event) => {
@@ -1421,8 +1522,8 @@ export default function Sidebar() {
 																isActive={isActive}
 																className={`h-7 w-full translate-x-0 cursor-default justify-start px-2 text-left ${
 																	isActive
-																		? "bg-accent/85 text-foreground font-medium ring-1 ring-border/70 hover:!bg-accent/85 hover:!text-foreground dark:bg-accent/55 dark:ring-border/50"
-																		: "text-muted-foreground hover:!bg-transparent hover:!text-muted-foreground"
+																		? "bg-accent/85 text-foreground font-medium ring-1 ring-border/70 hover:bg-accent/85! hover:text-foreground! dark:bg-accent/55 dark:ring-border/50"
+																		: "text-muted-foreground hover:bg-transparent! hover:text-muted-foreground!"
 																}`}
 																onClick={() => {
 																	void navigate({
@@ -1477,7 +1578,7 @@ export default function Sidebar() {
 																	)}
 																	{threadStatus && (
 																		<span
-																			className={`inline-flex items-center gap-1 text-[10px] ${threadStatus.colorClass}`}
+																			className={`inline-flex items-center gap-1 text-2xs ${threadStatus.colorClass}`}
 																		>
 																			<span
 																				className={`h-1.5 w-1.5 rounded-full ${threadStatus.dotClass} ${
@@ -1557,7 +1658,7 @@ export default function Sidebar() {
 																		</span>
 																	)}
 																	<span
-																		className={`text-[10px] ${
+																		className={`text-2xs ${
 																			isActive
 																				? "text-foreground/65"
 																				: "text-muted-foreground/40"
@@ -1576,7 +1677,7 @@ export default function Sidebar() {
 														<SidebarMenuSubButton
 															render={<button type="button" />}
 															size="sm"
-															className="h-6 w-full translate-x-0 justify-start px-2 text-left text-[10px] text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
+															className="h-6 w-full translate-x-0 justify-start px-2 text-left text-2xs text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
 															onClick={() => {
 																expandThreadListForProject(project.id);
 															}}
@@ -1590,7 +1691,7 @@ export default function Sidebar() {
 														<SidebarMenuSubButton
 															render={<button type="button" />}
 															size="sm"
-															className="h-6 w-full translate-x-0 justify-start px-2 text-left text-[10px] text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
+															className="h-6 w-full translate-x-0 justify-start px-2 text-left text-2xs text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground/80"
 															onClick={() => {
 																collapseThreadListForProject(project.id);
 															}}
@@ -1633,7 +1734,10 @@ export default function Sidebar() {
 									}
 									return;
 								}
-								void navigate({ to: "/settings" });
+								void navigate({
+									to: "/settings",
+									search: { tab: "appearance" },
+								});
 							}}
 						>
 							{isOnSettings ? (

@@ -31,6 +31,7 @@ const GitPrStepStatus = Schema.Literals([
 	"skipped_not_requested",
 ]);
 const GitStatusPrState = Schema.Literals(["open", "closed", "merged"]);
+const GitIssueState = Schema.Literals(["open", "closed"]);
 
 export const GitBranch = Schema.Struct({
 	name: TrimmedNonEmptyStringSchema,
@@ -58,6 +59,12 @@ export const GitPullInput = Schema.Struct({
 	cwd: TrimmedNonEmptyStringSchema,
 });
 export type GitPullInput = typeof GitPullInput.Type;
+
+export const GitListIssuesInput = Schema.Struct({
+	cwd: TrimmedNonEmptyStringSchema,
+	limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
+});
+export type GitListIssuesInput = typeof GitListIssuesInput.Type;
 
 export const GitRunStackedActionInput = Schema.Struct({
 	cwd: TrimmedNonEmptyStringSchema,
@@ -117,6 +124,20 @@ const GitStatusPr = Schema.Struct({
 	state: GitStatusPrState,
 });
 
+const GitIssueLabel = Schema.Struct({
+	name: TrimmedNonEmptyStringSchema,
+	color: Schema.NullOr(TrimmedNonEmptyStringSchema),
+});
+
+const GitIssueSummary = Schema.Struct({
+	number: PositiveInt,
+	title: TrimmedNonEmptyStringSchema,
+	url: Schema.String,
+	state: GitIssueState,
+	labels: Schema.Array(GitIssueLabel),
+});
+export type GitIssueSummary = typeof GitIssueSummary.Type;
+
 export const GitStatusResult = Schema.Struct({
 	branch: TrimmedNonEmptyStringSchema.pipe(Schema.NullOr),
 	hasWorkingTreeChanges: Schema.Boolean,
@@ -137,6 +158,11 @@ export const GitStatusResult = Schema.Struct({
 	pr: Schema.NullOr(GitStatusPr),
 });
 export type GitStatusResult = typeof GitStatusResult.Type;
+
+export const GitListIssuesResult = Schema.Struct({
+	issues: Schema.Array(GitIssueSummary),
+});
+export type GitListIssuesResult = typeof GitListIssuesResult.Type;
 
 export const GitListBranchesResult = Schema.Struct({
 	branches: Schema.Array(GitBranch),

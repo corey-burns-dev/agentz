@@ -11,6 +11,7 @@ import {
 	CircleAlertIcon,
 	DiffIcon,
 	FolderClosedIcon,
+	FolderTreeIcon,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -62,6 +63,7 @@ interface ChatHeaderProps {
 	diffToggleShortcutLabel: string | null;
 	gitCwd: string | null;
 	diffOpen: boolean;
+	projectDockOpen: boolean;
 	onRunProjectScript: (script: ProjectScript) => void;
 	onAddProjectScript: (input: NewProjectScriptInput) => Promise<void>;
 	onUpdateProjectScript: (
@@ -69,6 +71,7 @@ interface ChatHeaderProps {
 		input: NewProjectScriptInput,
 	) => Promise<void>;
 	onToggleDiff: () => void;
+	onToggleProjectDock: () => void;
 }
 
 const ChatHeader = memo(function ChatHeader({
@@ -84,10 +87,12 @@ const ChatHeader = memo(function ChatHeader({
 	diffToggleShortcutLabel,
 	gitCwd,
 	diffOpen,
+	projectDockOpen,
 	onRunProjectScript,
 	onAddProjectScript,
 	onUpdateProjectScript,
 	onToggleDiff,
+	onToggleProjectDock,
 }: ChatHeaderProps) {
 	return (
 		<div className="flex min-w-0 flex-1 items-center gap-2">
@@ -105,10 +110,7 @@ const ChatHeader = memo(function ChatHeader({
 					</Badge>
 				)}
 				{activeProjectName && !isGitRepo && (
-					<Badge
-						variant="outline"
-						className="shrink-0 text-[10px] text-amber-700"
-					>
+					<Badge variant="outline" className="shrink-0 text-2xs text-amber-700">
 						No Git
 					</Badge>
 				)}
@@ -134,6 +136,28 @@ const ChatHeader = memo(function ChatHeader({
 				{activeProjectName && (
 					<GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />
 				)}
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Toggle
+								className="shrink-0"
+								pressed={projectDockOpen}
+								onPressedChange={onToggleProjectDock}
+								aria-label="Toggle project dock"
+								variant="outline"
+								size="xs"
+								disabled={!activeProjectName}
+							>
+								<FolderTreeIcon className="size-3" />
+							</Toggle>
+						}
+					/>
+					<TooltipPopup side="bottom">
+						{activeProjectName
+							? "Toggle project dock"
+							: "Project dock is unavailable because no project is active."}
+					</TooltipPopup>
+				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger
 						render={
@@ -376,10 +400,12 @@ export function Toolbar(props: ToolbarProps) {
 					diffToggleShortcutLabel={props.diffToggleShortcutLabel}
 					gitCwd={props.gitCwd}
 					diffOpen={props.diffOpen}
+					projectDockOpen={props.projectDockOpen}
 					onRunProjectScript={props.onRunProjectScript}
 					onAddProjectScript={props.onAddProjectScript}
 					onUpdateProjectScript={props.onUpdateProjectScript}
 					onToggleDiff={props.onToggleDiff}
+					onToggleProjectDock={props.onToggleProjectDock}
 				/>
 			</header>
 			<ProviderHealthBanner status={props.providerStatus} />

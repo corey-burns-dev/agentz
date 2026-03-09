@@ -48,12 +48,11 @@ import {
 	type PendingUserInputDraftAnswer,
 } from "../pendingUserInput";
 import { proposedPlanTitle } from "../proposedPlan";
-import {
-	type derivePhase,
-	type PendingApproval,
-	type PendingUserInput,
-	PROVIDER_OPTIONS,
-	type ProviderPickerKind,
+import type {
+	derivePhase,
+	PendingApproval,
+	PendingUserInput,
+	ProviderPickerKind,
 } from "../session-logic";
 import type { Thread } from "../types";
 import {
@@ -134,7 +133,7 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
 				<BotIcon className="size-4 text-muted-foreground/80" />
 			) : null}
 			{props.item.type === "model" ? (
-				<Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+				<Badge variant="outline" className="px-1.5 py-0 text-2xs">
 					model
 				</Badge>
 			) : null}
@@ -411,7 +410,7 @@ const ComposerPendingUserInputCard = memo(
 				<div className="flex items-center gap-3">
 					<div className="flex items-center gap-2">
 						{prompt.questions.length > 1 ? (
-							<span className="flex h-5 items-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground/60">
+							<span className="flex h-5 items-center rounded-md bg-muted/60 px-1.5 text-2xs font-medium tabular-nums text-muted-foreground/60">
 								{questionIndex + 1}/{prompt.questions.length}
 							</span>
 						) : null}
@@ -444,16 +443,21 @@ const ComposerPendingUserInputCard = memo(
 								)}
 							>
 								{shortcutKey !== null ? (
-									<kbd
-										className={cn(
-											"flex size-5 shrink-0 items-center justify-center rounded text-[11px] font-medium tabular-nums transition-colors duration-150",
-											isSelected
-												? "bg-primary/20 text-primary"
-												: "bg-muted/40 text-muted-foreground/50 group-hover:bg-muted/60 group-hover:text-muted-foreground/70",
-										)}
-									>
-										{shortcutKey}
-									</kbd>
+									<>
+										<kbd
+											className={cn(
+												"flex size-5 shrink-0 items-center justify-center rounded text-[11px] font-medium tabular-nums transition-colors duration-150",
+												isSelected
+													? "bg-primary/20 text-primary"
+													: "bg-muted/40 text-muted-foreground/50 group-hover:bg-muted/60 group-hover:text-muted-foreground/70",
+											)}
+										>
+											{shortcutKey}
+										</kbd>
+										<span className="sr-only">
+											Press {shortcutKey} to select
+										</span>
+									</>
 								) : null}
 								<div className="min-w-0 flex-1">
 									<span className="text-sm font-medium">{option.label}</span>
@@ -493,20 +497,6 @@ const ComposerPlanFollowUpBanner = memo(function ComposerPlanFollowUpBanner({
 		</div>
 	);
 });
-
-function isAvailableProviderOption(
-	option: (typeof PROVIDER_OPTIONS)[number],
-): option is {
-	value: ProviderKind;
-	label: string;
-	available: true;
-} {
-	return option.available;
-}
-
-const AVAILABLE_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter(
-	isAvailableProviderOption,
-);
 
 const PROVIDER_ICON_BY_PROVIDER: Record<ProviderPickerKind, Icon> = {
 	codex: OpenAI,
@@ -557,6 +547,11 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
 		ProviderKind,
 		ReadonlyArray<{ slug: string; name: string }>
 	>;
+	availableProviders: ReadonlyArray<{
+		value: ProviderPickerKind;
+		label: string;
+		available: true;
+	}>;
 	serviceTierSetting: AppServiceTier;
 	disabled?: boolean;
 	onProviderModelChange: (provider: ProviderKind, model: ModelSlug) => void;
@@ -603,7 +598,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
 				</span>
 			</MenuTrigger>
 			<MenuPopup align="start" side="top">
-				{AVAILABLE_PROVIDER_OPTIONS.map((option) => {
+				{props.availableProviders.map((option) => {
 					const OptionIcon = PROVIDER_ICON_BY_PROVIDER[option.value];
 					const isDisabledByProviderLock =
 						props.lockedProvider !== null &&
@@ -801,6 +796,11 @@ export interface ComposerAreaProps {
 		ProviderKind,
 		ReadonlyArray<{ slug: string; name: string }>
 	>;
+	availableProviders: ReadonlyArray<{
+		value: ProviderPickerKind;
+		label: string;
+		available: true;
+	}>;
 	selectedServiceTierSetting: AppServiceTier;
 	onProviderModelSelect: (provider: ProviderKind, model: ModelSlug) => void;
 	selectedEffort: CodexReasoningEffort | null;
@@ -839,6 +839,8 @@ export interface ComposerAreaProps {
 	onAdvanceActivePendingUserInput: () => void;
 	onAppendToPrompt?: (text: string) => void;
 	isVoiceInputSupported?: boolean;
+	/** Shown when user has switched provider on a finished thread (e.g. "Next message will use Claude Code"). */
+	providerSwitchHint?: string | null;
 }
 
 export function ComposerArea(props: ComposerAreaProps) {
@@ -988,7 +990,7 @@ export function ComposerArea(props: ComposerAreaProps) {
 														/>
 													</button>
 												) : (
-													<div className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-muted-foreground/70">
+													<div className="flex h-full w-full items-center justify-center px-1 text-center text-2xs text-muted-foreground/70">
 														{image.name}
 													</div>
 												)}
@@ -1058,9 +1060,15 @@ export function ComposerArea(props: ComposerAreaProps) {
 									model={props.selectedModelForPickerWithCustomFallback}
 									lockedProvider={props.lockedProvider}
 									modelOptionsByProvider={props.modelOptionsByProvider}
+									availableProviders={props.availableProviders}
 									serviceTierSetting={props.selectedServiceTierSetting}
 									onProviderModelChange={props.onProviderModelSelect}
 								/>
+								{props.providerSwitchHint ? (
+									<span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+										{props.providerSwitchHint}
+									</span>
+								) : null}
 
 								{props.selectedProvider === "codex" &&
 								props.selectedEffort != null ? (

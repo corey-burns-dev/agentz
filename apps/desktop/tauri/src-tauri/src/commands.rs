@@ -47,6 +47,23 @@ pub fn pick_folder() -> Result<Option<String>, String> {
     Ok(path.map(|p| p.display().to_string()))
 }
 
+/// Returns absolute paths of immediate child directories of `parent_path`.
+/// Returns an empty vec if the path is invalid or not readable.
+#[tauri::command]
+pub fn list_child_directories(parent_path: String) -> Vec<String> {
+    let path = std::path::Path::new(&parent_path);
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return Vec::new();
+    };
+    let mut dirs: Vec<String> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.path().display().to_string())
+        .collect();
+    dirs.sort();
+    dirs
+}
+
 #[tauri::command]
 pub async fn confirm(app: AppHandle, message: String) -> Result<bool, String> {
     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};

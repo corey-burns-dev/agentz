@@ -7,6 +7,8 @@
  * @module GitManager
  */
 import type {
+	GitListIssuesInput,
+	GitListIssuesResult,
 	GitRunStackedActionInput,
 	GitRunStackedActionResult,
 	GitStatusInput,
@@ -26,6 +28,13 @@ export interface GitManagerShape {
 	readonly status: (
 		input: GitStatusInput,
 	) => Effect.Effect<GitStatusResult, GitManagerServiceError>;
+
+	/**
+	 * List recent GitHub issues for the repository when available.
+	 */
+	readonly listIssues: (
+		input: GitListIssuesInput,
+	) => Effect.Effect<GitListIssuesResult, GitManagerServiceError>;
 
 	/**
 	 * Run a stacked Git action (`commit`, `commit_push`, `commit_push_pr`).

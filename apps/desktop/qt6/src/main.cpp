@@ -42,6 +42,7 @@ QString desktopBridgeScript(const QString& wsUrl) {
         "window.desktopBridge = {"
         "  getWsUrl: function() { return u || null; },"
         "  pickFolder: function() { return Promise.resolve(null); },"
+        "  listChildDirectories: function() { return Promise.resolve([]); },"
         "  confirm: function() { return Promise.resolve(false); },"
         "  showContextMenu: function() { return Promise.resolve(null); },"
         "  openExternal: function() { return Promise.resolve(false); },"

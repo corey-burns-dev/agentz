@@ -25,6 +25,7 @@ import {
 } from "../lib/serverReactQuery";
 import { collectActiveTerminalThreadIds } from "../lib/terminalStateCleanup";
 import { readNativeApi } from "../nativeApi";
+import { handleOrchestrationEventForNotifications } from "../notifications";
 import { useStore } from "../store";
 import { preferredTerminalEditor } from "../terminal-links";
 import { terminalRunningSubprocessFromEvent } from "../terminalActivity";
@@ -268,6 +269,29 @@ function EventRouter() {
 					}
 					void syncSnapshot();
 				}, DOMAIN_EVENT_BATCH_MS);
+			}
+
+			// Fire-and-forget notification routing; never let notification issues
+			// interfere with orchestration snapshot syncing or provider updates.
+			// _chat is a pathless layout; actual path is /$threadId (e.g. /abc-123).
+			try {
+				const pathname = pathnameRef.current ?? "";
+				let activeThreadId: ThreadId | null = null;
+				const segments = pathname.split("/").filter(Boolean);
+				const firstSegment = segments[0];
+				if (
+					segments.length === 1 &&
+					typeof firstSegment === "string" &&
+					firstSegment !== "settings" &&
+					firstSegment.length > 0
+				) {
+					activeThreadId = ThreadId.makeUnsafe(firstSegment);
+				}
+				handleOrchestrationEventForNotifications(event, {
+					activeThreadId,
+				});
+			} catch {
+				// Swallow notification errors to keep orchestration routing robust.
 			}
 		});
 		const unsubTerminalEvent = api.terminal.onEvent((event) => {

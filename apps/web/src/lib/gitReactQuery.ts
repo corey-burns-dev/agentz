@@ -8,12 +8,16 @@ import { ensureNativeApi } from "../nativeApi";
 
 const GIT_STATUS_STALE_TIME_MS = 5_000;
 const GIT_STATUS_REFETCH_INTERVAL_MS = 15_000;
+const GIT_ISSUES_STALE_TIME_MS = 30_000;
+const GIT_ISSUES_REFETCH_INTERVAL_MS = 60_000;
 const GIT_BRANCHES_STALE_TIME_MS = 15_000;
 const GIT_BRANCHES_REFETCH_INTERVAL_MS = 60_000;
 
 export const gitQueryKeys = {
 	all: ["git"] as const,
 	status: (cwd: string | null) => ["git", "status", cwd] as const,
+	issues: (cwd: string | null, limit: number) =>
+		["git", "issues", cwd, limit] as const,
 	branches: (cwd: string | null) => ["git", "branches", cwd] as const,
 };
 
@@ -43,6 +47,27 @@ export function gitStatusQueryOptions(cwd: string | null) {
 		refetchOnWindowFocus: "always",
 		refetchOnReconnect: "always",
 		refetchInterval: GIT_STATUS_REFETCH_INTERVAL_MS,
+	});
+}
+
+export function gitIssuesQueryOptions(input: {
+	cwd: string | null;
+	limit?: number;
+	enabled?: boolean;
+}) {
+	const limit = input.limit ?? 20;
+	return queryOptions({
+		queryKey: gitQueryKeys.issues(input.cwd, limit),
+		queryFn: async () => {
+			const api = ensureNativeApi();
+			if (!input.cwd) throw new Error("GitHub issues are unavailable.");
+			return api.git.listIssues({ cwd: input.cwd, limit });
+		},
+		enabled: (input.enabled ?? true) && input.cwd !== null,
+		staleTime: GIT_ISSUES_STALE_TIME_MS,
+		refetchOnWindowFocus: true,
+		refetchOnReconnect: true,
+		refetchInterval: GIT_ISSUES_REFETCH_INTERVAL_MS,
 	});
 }
 

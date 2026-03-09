@@ -142,6 +142,10 @@ export function createWsNativeApi(): NativeApi {
 				if (!window.desktopBridge) return null;
 				return window.desktopBridge.pickFolder();
 			},
+			listChildDirectories: async (parentPath: string) => {
+				if (!window.desktopBridge?.listChildDirectories) return [];
+				return window.desktopBridge.listChildDirectories(parentPath);
+			},
 			confirm: async (message) => {
 				if (window.desktopBridge) {
 					return window.desktopBridge.confirm(message);
@@ -187,6 +191,7 @@ export function createWsNativeApi(): NativeApi {
 		},
 		git: {
 			pull: (input) => transport.request(WS_METHODS.gitPull, input),
+			listIssues: (input) => transport.request(WS_METHODS.gitListIssues, input),
 			status: (input) => transport.request(WS_METHODS.gitStatus, input),
 			runStackedAction: (input) =>
 				transport.request(WS_METHODS.gitRunStackedAction, input),

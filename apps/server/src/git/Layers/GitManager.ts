@@ -24,6 +24,17 @@ interface PullRequestInfo extends OpenPrInfo {
 	updatedAt: string | null;
 }
 
+interface IssueInfo {
+	number: number;
+	title: string;
+	url: string;
+	state: "open" | "closed";
+	labels: ReadonlyArray<{
+		name: string;
+		color: string | null;
+	}>;
+}
+
 function parsePullRequestList(raw: unknown): PullRequestInfo[] {
 	if (!Array.isArray(raw)) return [];
 
@@ -80,6 +91,63 @@ function parsePullRequestList(raw: unknown): PullRequestInfo[] {
 				typeof updatedAt === "string" && updatedAt.trim().length > 0
 					? updatedAt
 					: null,
+		});
+	}
+	return parsed;
+}
+
+function parseIssueList(raw: unknown): IssueInfo[] {
+	if (!Array.isArray(raw)) return [];
+
+	const parsed: IssueInfo[] = [];
+	for (const entry of raw) {
+		if (!entry || typeof entry !== "object") continue;
+		const record = entry as Record<string, unknown>;
+		const number = record.number;
+		const title = record.title;
+		const url = record.url;
+		const state = record.state;
+		const labelsRaw = record.labels;
+		if (
+			typeof number !== "number" ||
+			!Number.isInteger(number) ||
+			number <= 0 ||
+			typeof title !== "string" ||
+			typeof url !== "string"
+		) {
+			continue;
+		}
+
+		const normalizedState =
+			state === "CLOSED" ? "closed" : state === "OPEN" ? "open" : null;
+		if (!normalizedState) {
+			continue;
+		}
+
+		const labels = Array.isArray(labelsRaw)
+			? labelsRaw.flatMap((label) => {
+					if (!label || typeof label !== "object") return [];
+					const labelRecord = label as Record<string, unknown>;
+					if (typeof labelRecord.name !== "string") return [];
+					return [
+						{
+							name: labelRecord.name,
+							color:
+								typeof labelRecord.color === "string" &&
+								labelRecord.color.trim().length > 0
+									? labelRecord.color
+									: null,
+						},
+					];
+				})
+			: [];
+
+		parsed.push({
+			number,
+			title,
+			url,
+			state: normalizedState,
+			labels,
 		});
 	}
 	return parsed;
@@ -502,6 +570,45 @@ export const makeGitManager = Effect.gen(function* () {
 		},
 	);
 
+	const listIssues: GitManagerShape["listIssues"] = Effect.fnUntraced(
+		function* (input) {
+			const stdout = yield* gitHubCli
+				.execute({
+					cwd: input.cwd,
+					args: [
+						"issue",
+						"list",
+						"--state",
+						"all",
+						"--limit",
+						String(input.limit ?? 20),
+						"--json",
+						"number,title,url,state,labels",
+					],
+				})
+				.pipe(Effect.map((result) => result.stdout));
+
+			const raw = stdout.trim();
+			if (raw.length === 0) {
+				return { issues: [] };
+			}
+
+			const parsedJson = yield* Effect.try({
+				try: () => JSON.parse(raw) as unknown,
+				catch: (cause) =>
+					gitManagerError(
+						"listIssues",
+						"GitHub CLI returned invalid issue list JSON.",
+						cause,
+					),
+			});
+
+			return {
+				issues: parseIssueList(parsedJson),
+			};
+		},
+	);
+
 	const runFeatureBranchStep = (
 		cwd: string,
 		branch: string | null,
@@ -607,6 +714,7 @@ export const makeGitManager = Effect.gen(function* () {
 		});
 
 	return {
+		listIssues,
 		status,
 		runStackedAction,
 	} satisfies GitManagerShape;

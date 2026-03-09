@@ -7,6 +7,7 @@ import {
 	GitCreateWorktreeInput,
 	GitInitInput,
 	GitListBranchesInput,
+	GitListIssuesInput,
 	GitPullInput,
 	GitRemoveWorktreeInput,
 	GitRunStackedActionInput,
@@ -46,6 +47,7 @@ export const WS_METHODS = {
 
 	// Git methods
 	gitPull: "git.pull",
+	gitListIssues: "git.listIssues",
 	gitStatus: "git.status",
 	gitRunStackedAction: "git.runStackedAction",
 	gitListBranches: "git.listBranches",
@@ -123,6 +125,7 @@ const WebSocketRequestBody = Schema.Union([
 
 	// Git methods
 	tagRequestBody(WS_METHODS.gitPull, GitPullInput),
+	tagRequestBody(WS_METHODS.gitListIssues, GitListIssuesInput),
 	tagRequestBody(WS_METHODS.gitStatus, GitStatusInput),
 	tagRequestBody(WS_METHODS.gitRunStackedAction, GitRunStackedActionInput),
 	tagRequestBody(WS_METHODS.gitListBranches, GitListBranchesInput),
