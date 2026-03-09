@@ -1,19 +1,8 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { qt6Dir, resolveQtExecutable } from "./qt6-paths.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const qt6Dir = join(__dirname, "..");
-
-let exe = join(qt6Dir, "build", "agents_qt6");
-if (process.platform === "win32") {
-	exe += ".exe";
-	if (!existsSync(exe)) {
-		const releaseExe = join(qt6Dir, "build", "Release", "agents_qt6.exe");
-		if (existsSync(releaseExe)) exe = releaseExe;
-	}
-}
+const exe = resolveQtExecutable();
 
 if (!existsSync(exe)) {
 	console.error("Qt6 app not built. Run: bun run build:qt6");

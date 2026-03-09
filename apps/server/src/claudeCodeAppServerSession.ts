@@ -63,6 +63,10 @@ export interface ClaudeCodeActiveTurnContext {
 	output: ReadlineInterface;
 	assistantItemId: ProviderItemId;
 	reasoningItemId: ProviderItemId;
+	assistantTextStreamed: boolean;
+	reasoningTextStreamed: boolean;
+	assistantMessageText: string;
+	reasoningMessageText: string;
 	/** Content blocks currently being streamed, keyed by block index */
 	contentBlocks: Map<number, ContentBlockContext>;
 	/** Tool items keyed by tool_use_id */

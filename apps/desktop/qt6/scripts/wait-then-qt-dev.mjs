@@ -1,11 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { request } from "node:http";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const qt6Dir = join(__dirname, "..");
+import { qt6Dir, resolveQtExecutable } from "./qt6-paths.mjs";
+
 const port = Number(process.env.PORT ?? "5733");
 const TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 250;
@@ -42,14 +39,7 @@ const buildResult = spawnSync("node", ["scripts/cmake-build.mjs"], {
 });
 if (buildResult.status !== 0) process.exit(buildResult.status ?? 1);
 
-let exe = join(qt6Dir, "build", "agents_qt6");
-if (process.platform === "win32") {
-	exe += ".exe";
-	if (!existsSync(exe)) {
-		const releaseExe = join(qt6Dir, "build", "Release", "agents_qt6.exe");
-		if (existsSync(releaseExe)) exe = releaseExe;
-	}
-}
+const exe = resolveQtExecutable();
 
 const child = spawn(exe, [], {
 	cwd: qt6Dir,

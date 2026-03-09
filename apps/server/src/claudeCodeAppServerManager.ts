@@ -263,6 +263,10 @@ export class ClaudeCodeAppServerManager extends EventEmitter<ClaudeCodeAppServer
 			output,
 			assistantItemId: ProviderItemId.makeUnsafe(randomUUID()),
 			reasoningItemId: ProviderItemId.makeUnsafe(randomUUID()),
+			assistantTextStreamed: false,
+			reasoningTextStreamed: false,
+			assistantMessageText: "",
+			reasoningMessageText: "",
 			contentBlocks: new Map(),
 			toolItems: new Map(),
 			startedItemIds: new Set(),
@@ -733,39 +737,29 @@ export class ClaudeCodeAppServerManager extends EventEmitter<ClaudeCodeAppServer
 				if (deltaType === "text_delta") {
 					const text = asString(delta.text);
 					if (!text) return;
-					this.emitEvent({
-						id: EventId.makeUnsafe(randomUUID()),
-						kind: "notification",
-						provider: "claude-code",
-						threadId: context.session.threadId,
-						createdAt: new Date().toISOString(),
-						method: "item/agentMessage/delta",
+					activeTurn.assistantTextStreamed = true;
+					this.emitTextDelta(
+						context,
+						activeTurn,
 						turnId,
-						itemId: activeTurn.assistantItemId,
-						textDelta: text,
-						payload: {
-							item: { id: activeTurn.assistantItemId, type: "agentMessage" },
-							delta: text,
-						},
-					});
+						activeTurn.assistantItemId,
+						"agentMessage",
+						"item/agentMessage/delta",
+						text,
+					);
 				} else if (deltaType === "thinking_delta") {
 					const thinking = asString(delta.thinking);
 					if (!thinking) return;
-					this.emitEvent({
-						id: EventId.makeUnsafe(randomUUID()),
-						kind: "notification",
-						provider: "claude-code",
-						threadId: context.session.threadId,
-						createdAt: new Date().toISOString(),
-						method: "item/reasoning/textDelta",
+					activeTurn.reasoningTextStreamed = true;
+					this.emitTextDelta(
+						context,
+						activeTurn,
 						turnId,
-						itemId: activeTurn.reasoningItemId,
-						textDelta: thinking,
-						payload: {
-							item: { id: activeTurn.reasoningItemId, type: "reasoning" },
-							delta: thinking,
-						},
-					});
+						activeTurn.reasoningItemId,
+						"reasoning",
+						"item/reasoning/textDelta",
+						thinking,
+					);
 				}
 				break;
 			}
@@ -809,50 +803,90 @@ export class ClaudeCodeAppServerManager extends EventEmitter<ClaudeCodeAppServer
 		const content = Array.isArray(message.content)
 			? (message.content as unknown[])
 			: [];
+		const assistantTextParts: string[] = [];
+		const reasoningTextParts: string[] = [];
 
 		for (const block of content) {
 			const blockRecord = asObject(block);
 			if (!blockRecord) continue;
 			const blockType = asString(blockRecord.type);
 
-			if (blockType === "tool_use") {
-				const toolUseId = asString(blockRecord.id);
-				const toolName = asString(blockRecord.name) ?? "unknown";
-				const toolInput = blockRecord.input;
-
-				if (!toolUseId) continue;
-
-				let toolCtx = activeTurn.toolItems.get(toolUseId);
-				if (!toolCtx) {
-					const itemId = ProviderItemId.makeUnsafe(randomUUID());
-					toolCtx = {
-						itemId,
-						toolUseId,
-						toolName,
-						itemType: itemTypeFromToolName(toolName),
-						input: toolInput,
-					};
-					activeTurn.toolItems.set(toolUseId, toolCtx);
-				} else {
-					toolCtx.input = toolInput;
+			if (blockType === "text") {
+				const text = asString(blockRecord.text);
+				if (text && !activeTurn.assistantTextStreamed) {
+					assistantTextParts.push(text);
 				}
-
-				const detail = detailFromToolInput(toolName, toolInput);
-				const path = pathFromToolInput(toolName, toolInput);
-
-				this.ensureItemStarted(
-					context,
-					activeTurn,
-					turnId,
-					toolCtx.itemId,
-					toolCtx.itemType,
-					{
-						...(toolName ? { title: toolName } : {}),
-						...(detail ? { summary: detail } : {}),
-						...(path ? { path } : {}),
-					},
-				);
+				continue;
 			}
+
+			if (blockType === "thinking") {
+				const thinking = asString(blockRecord.thinking);
+				if (thinking && !activeTurn.reasoningTextStreamed) {
+					reasoningTextParts.push(thinking);
+				}
+				continue;
+			}
+
+			if (blockType !== "tool_use") {
+				continue;
+			}
+
+			const toolUseId = asString(blockRecord.id);
+			const toolName = asString(blockRecord.name) ?? "unknown";
+			const toolInput = blockRecord.input;
+
+			if (!toolUseId) continue;
+
+			let toolCtx = activeTurn.toolItems.get(toolUseId);
+			if (!toolCtx) {
+				const itemId = ProviderItemId.makeUnsafe(randomUUID());
+				toolCtx = {
+					itemId,
+					toolUseId,
+					toolName,
+					itemType: itemTypeFromToolName(toolName),
+					input: toolInput,
+				};
+				activeTurn.toolItems.set(toolUseId, toolCtx);
+			} else {
+				toolCtx.input = toolInput;
+			}
+
+			const detail = detailFromToolInput(toolName, toolInput);
+			const path = pathFromToolInput(toolName, toolInput);
+
+			this.ensureItemStarted(
+				context,
+				activeTurn,
+				turnId,
+				toolCtx.itemId,
+				toolCtx.itemType,
+				{
+					...(toolName ? { title: toolName } : {}),
+					...(detail ? { summary: detail } : {}),
+					...(path ? { path } : {}),
+				},
+			);
+		}
+
+		if (assistantTextParts.length > 0) {
+			this.emitMessageSnapshotText(
+				context,
+				activeTurn,
+				turnId,
+				"assistant",
+				assistantTextParts.join(""),
+			);
+		}
+
+		if (reasoningTextParts.length > 0) {
+			this.emitMessageSnapshotText(
+				context,
+				activeTurn,
+				turnId,
+				"reasoning",
+				reasoningTextParts.join(""),
+			);
 		}
 	}
 
@@ -1048,6 +1082,77 @@ export class ClaudeCodeAppServerManager extends EventEmitter<ClaudeCodeAppServer
 			itemId,
 			payload: {
 				item: { id: itemId, type: itemType, ...payloadItem },
+			},
+		});
+	}
+
+	private emitMessageSnapshotText(
+		context: ClaudeCodeSessionContext,
+		activeTurn: ClaudeCodeActiveTurnContext,
+		turnId: TurnId,
+		kind: "assistant" | "reasoning",
+		snapshotText: string,
+	): void {
+		const priorText =
+			kind === "assistant"
+				? activeTurn.assistantMessageText
+				: activeTurn.reasoningMessageText;
+		const delta = snapshotText.startsWith(priorText)
+			? snapshotText.slice(priorText.length)
+			: snapshotText;
+		if (!delta) {
+			return;
+		}
+
+		if (kind === "assistant") {
+			activeTurn.assistantMessageText = snapshotText;
+			this.emitTextDelta(
+				context,
+				activeTurn,
+				turnId,
+				activeTurn.assistantItemId,
+				"agentMessage",
+				"item/agentMessage/delta",
+				delta,
+			);
+			return;
+		}
+
+		activeTurn.reasoningMessageText = snapshotText;
+		this.emitTextDelta(
+			context,
+			activeTurn,
+			turnId,
+			activeTurn.reasoningItemId,
+			"reasoning",
+			"item/reasoning/textDelta",
+			delta,
+		);
+	}
+
+	private emitTextDelta(
+		context: ClaudeCodeSessionContext,
+		activeTurn: ClaudeCodeActiveTurnContext,
+		turnId: TurnId,
+		itemId: ProviderItemId,
+		itemType: "agentMessage" | "reasoning",
+		method: "item/agentMessage/delta" | "item/reasoning/textDelta",
+		textDelta: string,
+	): void {
+		this.ensureItemStarted(context, activeTurn, turnId, itemId, itemType, {});
+		this.emitEvent({
+			id: EventId.makeUnsafe(randomUUID()),
+			kind: "notification",
+			provider: "claude-code",
+			threadId: context.session.threadId,
+			createdAt: new Date().toISOString(),
+			method,
+			turnId,
+			itemId,
+			textDelta,
+			payload: {
+				item: { id: itemId, type: itemType },
+				delta: textDelta,
 			},
 		});
 	}
