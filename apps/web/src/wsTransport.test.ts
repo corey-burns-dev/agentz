@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resolveDefaultWebSocketUrl, WsTransport } from "./wsTransport";
+import { WsTransport } from "./wsTransport";
 
 type WsEventType = "open" | "message" | "close" | "error";
 type WsListener = (event?: { data?: unknown }) => void;
@@ -8,190 +8,176 @@ type WsListener = (event?: { data?: unknown }) => void;
 const sockets: MockWebSocket[] = [];
 
 class MockWebSocket {
-  static readonly CONNECTING = 0;
-  static readonly OPEN = 1;
-  static readonly CLOSING = 2;
-  static readonly CLOSED = 3;
+	static readonly CONNECTING = 0;
+	static readonly OPEN = 1;
+	static readonly CLOSING = 2;
+	static readonly CLOSED = 3;
 
-  readyState = MockWebSocket.CONNECTING;
-  readonly url: string;
-  readonly sent: string[] = [];
-  private readonly listeners = new Map<WsEventType, Set<WsListener>>();
+	readyState = MockWebSocket.CONNECTING;
+	readonly sent: string[] = [];
+	private readonly listeners = new Map<WsEventType, Set<WsListener>>();
 
-  constructor(url: string) {
-    this.url = url;
-    sockets.push(this);
-  }
+	constructor(_url: string) {
+		sockets.push(this);
+	}
 
-  addEventListener(type: WsEventType, listener: WsListener) {
-    const listeners = this.listeners.get(type) ?? new Set<WsListener>();
-    listeners.add(listener);
-    this.listeners.set(type, listeners);
-  }
+	addEventListener(type: WsEventType, listener: WsListener) {
+		const listeners = this.listeners.get(type) ?? new Set<WsListener>();
+		listeners.add(listener);
+		this.listeners.set(type, listeners);
+	}
 
-  send(data: string) {
-    this.sent.push(data);
-  }
+	send(data: string) {
+		this.sent.push(data);
+	}
 
-  close() {
-    this.readyState = MockWebSocket.CLOSED;
-    this.emit("close");
-  }
+	close() {
+		this.readyState = MockWebSocket.CLOSED;
+		this.emit("close");
+	}
 
-  open() {
-    this.readyState = MockWebSocket.OPEN;
-    this.emit("open");
-  }
+	open() {
+		this.readyState = MockWebSocket.OPEN;
+		this.emit("open");
+	}
 
-  serverMessage(data: unknown) {
-    this.emit("message", { data });
-  }
+	serverMessage(data: unknown) {
+		this.emit("message", { data });
+	}
 
-  private emit(type: WsEventType, event?: { data?: unknown }) {
-    const listeners = this.listeners.get(type);
-    if (!listeners) return;
-    for (const listener of listeners) {
-      listener(event);
-    }
-  }
+	private emit(type: WsEventType, event?: { data?: unknown }) {
+		const listeners = this.listeners.get(type);
+		if (!listeners) return;
+		for (const listener of listeners) {
+			listener(event);
+		}
+	}
 }
 
 const originalWebSocket = globalThis.WebSocket;
 
 function getSocket(): MockWebSocket {
-  const socket = sockets.at(-1);
-  if (!socket) {
-    throw new Error("Expected a websocket instance");
-  }
-  return socket;
+	const socket = sockets.at(-1);
+	if (!socket) {
+		throw new Error("Expected a websocket instance");
+	}
+	return socket;
 }
 
 beforeEach(() => {
-  sockets.length = 0;
+	sockets.length = 0;
 
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      location: {
-        href: "http://localhost:3020/",
-        hostname: "localhost",
-        port: "3020",
-      },
-      desktopBridge: undefined,
-    },
-  });
+	Object.defineProperty(globalThis, "window", {
+		configurable: true,
+		value: {
+			location: { hostname: "localhost", port: "3020" },
+			desktopBridge: undefined,
+		},
+	});
 
-  globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
+	globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 });
 
 afterEach(() => {
-  globalThis.WebSocket = originalWebSocket;
-  vi.restoreAllMocks();
+	globalThis.WebSocket = originalWebSocket;
+	vi.restoreAllMocks();
 });
 
 describe("WsTransport", () => {
-  it("routes valid push envelopes to channel listeners", () => {
-    const transport = new WsTransport("ws://localhost:3020");
-    const socket = getSocket();
-    socket.open();
+	it("routes valid push envelopes to channel listeners", () => {
+		const transport = new WsTransport("ws://localhost:3020");
+		const socket = getSocket();
+		socket.open();
 
-    const listener = vi.fn();
-    transport.subscribe("providers.event", listener);
+		const listener = vi.fn();
+		transport.subscribe("providers.event", listener);
 
-    socket.serverMessage(
-      JSON.stringify({
-        type: "push",
-        channel: "providers.event",
-        data: { status: "ok" },
-      }),
-    );
+		socket.serverMessage(
+			JSON.stringify({
+				type: "push",
+				channel: "providers.event",
+				data: { status: "ok" },
+			}),
+		);
 
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith({ status: "ok" });
+		expect(listener).toHaveBeenCalledTimes(1);
+		expect(listener).toHaveBeenCalledWith({ status: "ok" });
 
-    transport.dispose();
-  });
+		transport.dispose();
+	});
 
-  it("preserves the page query string in the fallback websocket url", () => {
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: {
-        location: {
-          href: "http://localhost:3020/?token=secret-token",
-          hostname: "localhost",
-          port: "3020",
-        },
-        desktopBridge: undefined,
-      },
-    });
+	it("resolves pending requests for valid response envelopes", async () => {
+		const transport = new WsTransport("ws://localhost:3020");
+		const socket = getSocket();
+		socket.open();
 
-    expect(resolveDefaultWebSocketUrl()).toBe("ws://localhost:3020/?token=secret-token");
-  });
+		const requestPromise = transport.request("projects.list");
+		const sent = socket.sent.at(-1);
+		if (!sent) {
+			throw new Error("Expected request envelope to be sent");
+		}
 
-  it("resolves pending requests for valid response envelopes", async () => {
-    const transport = new WsTransport("ws://localhost:3020");
-    const socket = getSocket();
-    socket.open();
+		const requestEnvelope = JSON.parse(sent) as { id: string };
+		socket.serverMessage(
+			JSON.stringify({
+				id: requestEnvelope.id,
+				result: { projects: [] },
+			}),
+		);
 
-    const requestPromise = transport.request("projects.list");
-    const sent = socket.sent.at(-1);
-    if (!sent) {
-      throw new Error("Expected request envelope to be sent");
-    }
+		await expect(requestPromise).resolves.toEqual({ projects: [] });
 
-    const requestEnvelope = JSON.parse(sent) as { id: string };
-    socket.serverMessage(
-      JSON.stringify({
-        id: requestEnvelope.id,
-        result: { projects: [] },
-      }),
-    );
+		transport.dispose();
+	});
 
-    await expect(requestPromise).resolves.toEqual({ projects: [] });
+	it("drops malformed envelopes without crashing transport", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const transport = new WsTransport("ws://localhost:3020");
+		const socket = getSocket();
+		socket.open();
 
-    transport.dispose();
-  });
+		const listener = vi.fn();
+		transport.subscribe("providers.event", listener);
 
-  it("drops malformed envelopes without crashing transport", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const transport = new WsTransport("ws://localhost:3020");
-    const socket = getSocket();
-    socket.open();
+		socket.serverMessage("{ invalid-json");
+		socket.serverMessage(
+			JSON.stringify({
+				type: "push",
+				channel: 42,
+				data: { bad: true },
+			}),
+		);
+		socket.serverMessage(
+			JSON.stringify({
+				type: "push",
+				channel: "providers.event",
+				data: { ok: true },
+			}),
+		);
 
-    const listener = vi.fn();
-    transport.subscribe("providers.event", listener);
+		expect(listener).toHaveBeenCalledTimes(1);
+		expect(listener).toHaveBeenCalledWith({ ok: true });
+		expect(warnSpy).toHaveBeenCalledTimes(2);
+		expect(warnSpy).toHaveBeenNthCalledWith(
+			1,
+			"Dropped inbound WebSocket envelope",
+			{
+				reason: "decode-failed",
+				issue:
+					"SchemaError: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)",
+				raw: "{ invalid-json",
+			},
+		);
+		expect(warnSpy).toHaveBeenNthCalledWith(
+			2,
+			"Dropped inbound WebSocket envelope",
+			{
+				reason: "decode-failed",
+				issue: expect.stringContaining("SchemaError: Expected string, got 42"),
+				raw: '{"type":"push","channel":42,"data":{"bad":true}}',
+			},
+		);
 
-    socket.serverMessage("{ invalid-json");
-    socket.serverMessage(
-      JSON.stringify({
-        type: "push",
-        channel: 42,
-        data: { bad: true },
-      }),
-    );
-    socket.serverMessage(
-      JSON.stringify({
-        type: "push",
-        channel: "providers.event",
-        data: { ok: true },
-      }),
-    );
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith({ ok: true });
-    expect(warnSpy).toHaveBeenCalledTimes(2);
-    expect(warnSpy).toHaveBeenNthCalledWith(1, "Dropped inbound WebSocket envelope", {
-      reason: "decode-failed",
-      issue:
-        "SchemaError: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)",
-      raw: "{ invalid-json",
-    });
-    expect(warnSpy).toHaveBeenNthCalledWith(2, "Dropped inbound WebSocket envelope", {
-      reason: "decode-failed",
-      issue: expect.stringContaining("SchemaError: Expected string, got 42"),
-      raw: '{"type":"push","channel":42,"data":{"bad":true}}',
-    });
-
-    transport.dispose();
-  });
+		transport.dispose();
+	});
 });

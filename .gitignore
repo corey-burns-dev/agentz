@@ -12,7 +12,9 @@ packages/*/dist
 build/
 .logs/
 release/
+.agentz
 .t3
+apps/desktop/src-tauri/target
 apps/web/.playwright
 apps/web/playwright-report
 apps/web/src/components/__screenshots__

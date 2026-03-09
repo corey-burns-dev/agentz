@@ -11,56 +11,59 @@
  * @module OrchestrationEngineService
  */
 import type {
-  OrchestrationCommand,
-  OrchestrationEvent,
-  OrchestrationReadModel,
-} from "@t3tools/contracts";
-import { ServiceMap } from "effect";
+	OrchestrationCommand,
+	OrchestrationEvent,
+	OrchestrationReadModel,
+} from "@agentz/contracts";
 import type { Effect, Stream } from "effect";
-
-import type { OrchestrationDispatchError } from "../Errors.ts";
+import { ServiceMap } from "effect";
 import type { OrchestrationEventStoreError } from "../../persistence/Errors.ts";
+import type { OrchestrationDispatchError } from "../Errors.ts";
 
 /**
  * OrchestrationEngineShape - Service API for orchestration command and event flow.
  */
 export interface OrchestrationEngineShape {
-  /**
-   * Read the current in-memory orchestration read model.
-   *
-   * @returns Effect containing the latest read model.
-   */
-  readonly getReadModel: () => Effect.Effect<OrchestrationReadModel, never, never>;
+	/**
+	 * Read the current in-memory orchestration read model.
+	 *
+	 * @returns Effect containing the latest read model.
+	 */
+	readonly getReadModel: () => Effect.Effect<
+		OrchestrationReadModel,
+		never,
+		never
+	>;
 
-  /**
-   * Replay persisted orchestration events from an exclusive sequence cursor.
-   *
-   * @param fromSequenceExclusive - Sequence cursor (exclusive).
-   * @returns Stream containing ordered events.
-   */
-  readonly readEvents: (
-    fromSequenceExclusive: number,
-  ) => Stream.Stream<OrchestrationEvent, OrchestrationEventStoreError, never>;
+	/**
+	 * Replay persisted orchestration events from an exclusive sequence cursor.
+	 *
+	 * @param fromSequenceExclusive - Sequence cursor (exclusive).
+	 * @returns Stream containing ordered events.
+	 */
+	readonly readEvents: (
+		fromSequenceExclusive: number,
+	) => Stream.Stream<OrchestrationEvent, OrchestrationEventStoreError, never>;
 
-  /**
-   * Dispatch a validated orchestration command.
-   *
-   * @param command - Valid orchestration command.
-   * @returns Effect containing the sequence of the persisted event.
-   *
-   * Dispatch is serialized through an internal queue and deduplicated via
-   * command receipts.
-   */
-  readonly dispatch: (
-    command: OrchestrationCommand,
-  ) => Effect.Effect<{ sequence: number }, OrchestrationDispatchError, never>;
+	/**
+	 * Dispatch a validated orchestration command.
+	 *
+	 * @param command - Valid orchestration command.
+	 * @returns Effect containing the sequence of the persisted event.
+	 *
+	 * Dispatch is serialized through an internal queue and deduplicated via
+	 * command receipts.
+	 */
+	readonly dispatch: (
+		command: OrchestrationCommand,
+	) => Effect.Effect<{ sequence: number }, OrchestrationDispatchError, never>;
 
-  /**
-   * Stream persisted domain events in dispatch order.
-   *
-   * This is a hot runtime stream (new events only), not a historical replay.
-   */
-  readonly streamDomainEvents: Stream.Stream<OrchestrationEvent>;
+	/**
+	 * Stream persisted domain events in dispatch order.
+	 *
+	 * This is a hot runtime stream (new events only), not a historical replay.
+	 */
+	readonly streamDomainEvents: Stream.Stream<OrchestrationEvent>;
 }
 
 /**
@@ -75,6 +78,8 @@ export interface OrchestrationEngineShape {
  * ```
  */
 export class OrchestrationEngineService extends ServiceMap.Service<
-  OrchestrationEngineService,
-  OrchestrationEngineShape
->()("t3/orchestration/Services/OrchestrationEngine/OrchestrationEngineService") {}
+	OrchestrationEngineService,
+	OrchestrationEngineShape
+>()(
+	"agentz/orchestration/Services/OrchestrationEngine/OrchestrationEngineService",
+) {}

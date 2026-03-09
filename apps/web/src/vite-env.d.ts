@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 
-import type { NativeApi, DesktopBridge } from "@t3tools/contracts";
+import type { NativeApi, DesktopBridge } from "@agentz/contracts";
 
 declare global {
-  interface Window {
-    nativeApi?: NativeApi;
-    desktopBridge?: DesktopBridge;
-  }
+	interface Window {
+		nativeApi?: NativeApi;
+		desktopBridge?: DesktopBridge;
+	}
 }

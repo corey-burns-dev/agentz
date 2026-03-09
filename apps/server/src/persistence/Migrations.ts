@@ -8,9 +8,9 @@
  * ensuring the database schema is always up-to-date before the application starts.
  */
 
-import * as Migrator from "effect/unstable/sql/Migrator";
+import { Effect } from "effect";
 import * as Layer from "effect/Layer";
-
+import * as Migrator from "effect/unstable/sql/Migrator";
 // Import all migrations statically
 import Migration0001 from "./Migrations/001_OrchestrationEvents.ts";
 import Migration0002 from "./Migrations/002_OrchestrationCommandReceipts.ts";
@@ -25,7 +25,6 @@ import Migration0010 from "./Migrations/010_ProjectionThreadsRuntimeMode.ts";
 import Migration0011 from "./Migrations/011_OrchestrationThreadCreatedRuntimeMode.ts";
 import Migration0012 from "./Migrations/012_ProjectionThreadsInteractionMode.ts";
 import Migration0013 from "./Migrations/013_ProjectionThreadProposedPlans.ts";
-import { Effect } from "effect";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -38,19 +37,19 @@ import { Effect } from "effect";
  * returns migrations sorted by ID.
  */
 const loader = Migrator.fromRecord({
-  "1_OrchestrationEvents": Migration0001,
-  "2_OrchestrationCommandReceipts": Migration0002,
-  "3_CheckpointDiffBlobs": Migration0003,
-  "4_ProviderSessionRuntime": Migration0004,
-  "5_Projections": Migration0005,
-  "6_ProjectionThreadSessionRuntimeModeColumns": Migration0006,
-  "7_ProjectionThreadMessageAttachments": Migration0007,
-  "8_ProjectionThreadActivitySequence": Migration0008,
-  "9_ProviderSessionRuntimeMode": Migration0009,
-  "10_ProjectionThreadsRuntimeMode": Migration0010,
-  "11_OrchestrationThreadCreatedRuntimeMode": Migration0011,
-  "12_ProjectionThreadsInteractionMode": Migration0012,
-  "13_ProjectionThreadProposedPlans": Migration0013,
+	"1_OrchestrationEvents": Migration0001,
+	"2_OrchestrationCommandReceipts": Migration0002,
+	"3_CheckpointDiffBlobs": Migration0003,
+	"4_ProviderSessionRuntime": Migration0004,
+	"5_Projections": Migration0005,
+	"6_ProjectionThreadSessionRuntimeModeColumns": Migration0006,
+	"7_ProjectionThreadMessageAttachments": Migration0007,
+	"8_ProjectionThreadActivitySequence": Migration0008,
+	"9_ProviderSessionRuntimeMode": Migration0009,
+	"10_ProjectionThreadsRuntimeMode": Migration0010,
+	"11_OrchestrationThreadCreatedRuntimeMode": Migration0011,
+	"12_ProjectionThreadsInteractionMode": Migration0012,
+	"13_ProjectionThreadProposedPlans": Migration0013,
 });
 
 /**
@@ -70,9 +69,9 @@ const run = Migrator.make({});
  * @returns Effect containing array of executed migrations
  */
 export const runMigrations = Effect.gen(function* () {
-  yield* Effect.log("Running migrations...");
-  yield* run({ loader });
-  yield* Effect.log("Migrations ran successfully");
+	yield* Effect.log("Running migrations...");
+	yield* run({ loader });
+	yield* Effect.log("Migrations ran successfully");
 });
 
 /**

@@ -1,23 +1,33 @@
+import "./tauri-bridge";
+import {
+	createBrowserHistory,
+	createHashHistory,
+	RouterProvider,
+} from "@tanstack/react-router";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider } from "@tanstack/react-router";
-import { createHashHistory, createBrowserHistory } from "@tanstack/react-router";
 
 import "@xterm/xterm/css/xterm.css";
 import "./index.css";
 
-import { isElectron } from "./env";
-import { getRouter } from "./router";
 import { APP_DISPLAY_NAME } from "./branding";
+import { isDesktopShell } from "./env";
+import { getRouter } from "./router";
+import { ready } from "./tauri-bridge";
+import { setupZoom } from "./zoom";
 
-const history = isElectron ? createHashHistory() : createBrowserHistory();
+setupZoom();
 
-const router = getRouter(history);
+async function mount() {
+	await ready;
+	const history = isDesktopShell ? createHashHistory() : createBrowserHistory();
+	const router = getRouter(history);
+	document.title = APP_DISPLAY_NAME;
+	ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+		<React.StrictMode>
+			<RouterProvider router={router} />
+		</React.StrictMode>,
+	);
+}
 
-document.title = APP_DISPLAY_NAME;
-
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <RouterProvider router={router} />
-  </React.StrictMode>,
-);
+void mount();

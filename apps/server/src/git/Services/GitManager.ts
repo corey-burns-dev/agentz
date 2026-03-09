@@ -6,39 +6,40 @@
  *
  * @module GitManager
  */
-import {
-  GitRunStackedActionInput,
-  GitRunStackedActionResult,
-  GitStatusInput,
-  GitStatusResult,
-} from "@t3tools/contracts";
-import { ServiceMap } from "effect";
+import type {
+	GitRunStackedActionInput,
+	GitRunStackedActionResult,
+	GitStatusInput,
+	GitStatusResult,
+} from "@agentz/contracts";
 import type { Effect } from "effect";
+import { ServiceMap } from "effect";
 import type { GitManagerServiceError } from "../Errors.ts";
 
 /**
  * GitManagerShape - Service API for high-level Git workflow actions.
  */
 export interface GitManagerShape {
-  /**
-   * Read current repository Git status plus open PR metadata when available.
-   */
-  readonly status: (
-    input: GitStatusInput,
-  ) => Effect.Effect<GitStatusResult, GitManagerServiceError>;
+	/**
+	 * Read current repository Git status plus open PR metadata when available.
+	 */
+	readonly status: (
+		input: GitStatusInput,
+	) => Effect.Effect<GitStatusResult, GitManagerServiceError>;
 
-  /**
-   * Run a stacked Git action (`commit`, `commit_push`, `commit_push_pr`).
-   * When `featureBranch` is set, creates and checks out a feature branch first.
-   */
-  readonly runStackedAction: (
-    input: GitRunStackedActionInput,
-  ) => Effect.Effect<GitRunStackedActionResult, GitManagerServiceError>;
+	/**
+	 * Run a stacked Git action (`commit`, `commit_push`, `commit_push_pr`).
+	 * When `featureBranch` is set, creates and checks out a feature branch first.
+	 */
+	readonly runStackedAction: (
+		input: GitRunStackedActionInput,
+	) => Effect.Effect<GitRunStackedActionResult, GitManagerServiceError>;
 }
 
 /**
  * GitManager - Service tag for stacked Git workflow orchestration.
  */
-export class GitManager extends ServiceMap.Service<GitManager, GitManagerShape>()(
-  "t3/git/Services/GitManager",
-) {}
+export class GitManager extends ServiceMap.Service<
+	GitManager,
+	GitManagerShape
+>()("agentz/git/Services/GitManager") {}
