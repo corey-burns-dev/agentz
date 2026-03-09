@@ -100,9 +100,9 @@ pub async fn show_context_menu(
     });
 
     if let Some(pos) = position {
-        let phys = tauri::PhysicalPosition::new(pos.x, pos.y);
+        let logical = tauri::LogicalPosition::new(pos.x, pos.y);
         window_clone
-            .popup_menu_at(&menu_clone, phys)
+            .popup_menu_at(&menu_clone, tauri::Position::Logical(logical))
             .map_err(|e: tauri::Error| e.to_string())?;
     } else {
         window_clone.popup_menu(&menu_clone).map_err(|e: tauri::Error| e.to_string())?;
