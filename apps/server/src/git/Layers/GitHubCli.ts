@@ -6,6 +6,16 @@ import { GitHubCli, type GitHubCliShape } from "../Services/GitHubCli.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+function withRepositoryArg(
+	args: ReadonlyArray<string>,
+	repository?: string,
+): ReadonlyArray<string> {
+	if (!repository || repository.trim().length === 0) {
+		return args;
+	}
+	return [...args, "--repo", repository];
+}
+
 function normalizeGitHubCliError(
 	operation: "execute" | "stdout",
 	error: unknown,
@@ -107,7 +117,7 @@ const makeGitHubCli = Effect.sync(() => {
 	const execute: GitHubCliShape["execute"] = (input) =>
 		Effect.tryPromise({
 			try: () =>
-				runProcess("gh", input.args, {
+				runProcess("gh", withRepositoryArg(input.args, input.repository), {
 					cwd: input.cwd,
 					timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
 				}),
@@ -119,6 +129,7 @@ const makeGitHubCli = Effect.sync(() => {
 		listOpenPullRequests: (input) =>
 			execute({
 				cwd: input.cwd,
+				...(input.repository ? { repository: input.repository } : {}),
 				args: [
 					"pr",
 					"list",
@@ -151,6 +162,7 @@ const makeGitHubCli = Effect.sync(() => {
 		createPullRequest: (input) =>
 			execute({
 				cwd: input.cwd,
+				...(input.repository ? { repository: input.repository } : {}),
 				args: [
 					"pr",
 					"create",
@@ -167,6 +179,7 @@ const makeGitHubCli = Effect.sync(() => {
 		getDefaultBranch: (input) =>
 			execute({
 				cwd: input.cwd,
+				...(input.repository ? { repository: input.repository } : {}),
 				args: [
 					"repo",
 					"view",

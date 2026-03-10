@@ -926,6 +926,71 @@ describe("ChatView timeline estimator parity (full app)", () => {
 		}
 	});
 
+	it("keeps the draft thread route active while the first send waits for server projection", async () => {
+		const draftStore = useComposerDraftStore.getState();
+		draftStore.setProjectDraftThreadId(PROJECT_ID, THREAD_ID, {
+			createdAt: NOW_ISO,
+			runtimeMode: "full-access",
+			interactionMode: "default",
+			branch: null,
+			worktreePath: null,
+			envMode: "local",
+		});
+		draftStore.setPrompt(THREAD_ID, "Ship the pending draft thread fix");
+
+		const mounted = await mountChatView({
+			viewport: DEFAULT_VIEWPORT,
+			snapshot: createDraftOnlySnapshot(),
+		});
+
+		try {
+			const sendButton = await waitForElement(
+				() =>
+					document.querySelector<HTMLButtonElement>(
+						'button[aria-label="Send message"]',
+					),
+				"Unable to find send button for draft thread.",
+			);
+			sendButton.click();
+
+			await vi.waitFor(
+				() => {
+					const dispatchCommands = wsRequests
+						.filter(
+							(request) =>
+								request._tag === ORCHESTRATION_WS_METHODS.dispatchCommand,
+						)
+						.map((request) => request.command);
+
+					expect(dispatchCommands).toEqual(
+						expect.arrayContaining([
+							expect.objectContaining({
+								type: "thread.create",
+								threadId: THREAD_ID,
+								projectId: PROJECT_ID,
+							}),
+							expect.objectContaining({
+								type: "thread.turn.start",
+								threadId: THREAD_ID,
+							}),
+						]),
+					);
+
+					const sendingButton = document.querySelector<HTMLButtonElement>(
+						'button[aria-label="Sending"]',
+					);
+					expect(sendingButton).toBeTruthy();
+					expect(document.body.textContent).not.toContain(
+						"Select a thread or create a new one to get started.",
+					);
+				},
+				{ timeout: 8_000, interval: 16 },
+			);
+		} finally {
+			await mounted.cleanup();
+		}
+	});
+
 	it("toggles plan mode with Shift+Tab only while the composer is focused", async () => {
 		const mounted = await mountChatView({
 			viewport: DEFAULT_VIEWPORT,

@@ -5,7 +5,9 @@ import * as PlatformError from "effect/PlatformError";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
 import {
+	checkClaudeCodeProviderStatus,
 	checkCodexProviderStatus,
+	checkGeminiProviderStatus,
 	parseAuthStatusFromOutput,
 } from "./ProviderHealth";
 
@@ -95,6 +97,64 @@ it.effect("returns unavailable when codex is missing", () =>
 			"Codex CLI (`codex`) is not installed or not on PATH.",
 		);
 	}).pipe(Effect.provide(failingSpawnerLayer("spawn codex ENOENT"))),
+);
+
+it.effect("returns ready when gemini is installed", () =>
+	Effect.gen(function* () {
+		const status = yield* checkGeminiProviderStatus;
+		assert.strictEqual(status.provider, "gemini");
+		assert.strictEqual(status.status, "ready");
+		assert.strictEqual(status.available, true);
+		assert.strictEqual(status.authStatus, "unknown");
+	}).pipe(
+		Effect.provide(
+			mockSpawnerLayer((args) => {
+				const joined = args.join(" ");
+				if (joined === "--version") {
+					return { stdout: "gemini 0.37.0\n", stderr: "", code: 0 };
+				}
+				throw new Error(`Unexpected args: ${joined}`);
+			}),
+		),
+	),
+);
+
+it.effect("returns unavailable when gemini is missing", () =>
+	Effect.gen(function* () {
+		const status = yield* checkGeminiProviderStatus;
+		assert.strictEqual(status.provider, "gemini");
+		assert.strictEqual(status.status, "error");
+		assert.strictEqual(status.available, false);
+		assert.strictEqual(status.authStatus, "unknown");
+		assert.strictEqual(
+			status.message,
+			"Gemini CLI (`gemini`) is not installed or not on PATH.",
+		);
+	}).pipe(Effect.provide(failingSpawnerLayer("spawn gemini ENOENT"))),
+);
+
+it.effect("returns unavailable when claude is below the minimum version", () =>
+	Effect.gen(function* () {
+		const status = yield* checkClaudeCodeProviderStatus;
+		assert.strictEqual(status.provider, "claude-code");
+		assert.strictEqual(status.status, "error");
+		assert.strictEqual(status.available, false);
+		assert.strictEqual(status.authStatus, "unknown");
+		assert.strictEqual(
+			status.message,
+			"Claude Code CLI v1.9.0 is below the minimum required version (2.0.0). Please update: npm install -g @anthropic-ai/claude-code",
+		);
+	}).pipe(
+		Effect.provide(
+			mockSpawnerLayer((args) => {
+				const joined = args.join(" ");
+				if (joined === "--version") {
+					return { stdout: "1.9.0\n", stderr: "", code: 0 };
+				}
+				throw new Error(`Unexpected args: ${joined}`);
+			}),
+		),
+	),
 );
 
 it.effect(

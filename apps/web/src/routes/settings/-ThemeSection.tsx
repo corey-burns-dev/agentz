@@ -14,6 +14,7 @@ import {
 	DARK_THEME_PRESETS,
 	DENSITY_OPTIONS,
 	LIGHT_THEME_PRESET,
+	PROJECT_FAVICON_SIZE_OPTIONS,
 	RADIUS_PRESETS,
 	resolveUISettingsTheme,
 	THEME_MODE_OPTIONS,
@@ -90,6 +91,15 @@ const RADIUS_LABELS: Record<(typeof RADIUS_PRESETS)[number], string> = {
 	pill: "Pill",
 };
 
+const PROJECT_FAVICON_SIZE_LABELS: Record<
+	(typeof PROJECT_FAVICON_SIZE_OPTIONS)[number],
+	string
+> = {
+	small: "Small",
+	medium: "Medium",
+	large: "Large",
+};
+
 const THEME_MODE_OPTIONS_LIST: ReadonlyArray<SettingsOption<ThemeMode>> =
 	THEME_MODE_OPTIONS.map((mode) => ({
 		value: mode,
@@ -114,6 +124,19 @@ const RADIUS_OPTIONS_LIST: ReadonlyArray<
 > = RADIUS_PRESETS.map((radius) => ({
 	value: radius,
 	label: RADIUS_LABELS[radius],
+}));
+
+const PROJECT_FAVICON_SIZE_OPTIONS_LIST: ReadonlyArray<
+	SettingsOption<(typeof PROJECT_FAVICON_SIZE_OPTIONS)[number]>
+> = PROJECT_FAVICON_SIZE_OPTIONS.map((size) => ({
+	value: size,
+	label: PROJECT_FAVICON_SIZE_LABELS[size],
+	description:
+		size === "small"
+			? "Minimize sidebar icon space."
+			: size === "medium"
+				? "Keep the current default balance."
+				: "Make project icons easier to scan.",
 }));
 
 const PALETTE_OPTIONS: ReadonlyArray<
@@ -278,6 +301,26 @@ export function ThemeSection() {
 						value={uiSettings.density}
 						onChange={(density) => updateUISettings({ density })}
 						options={DENSITY_OPTIONS_LIST}
+					/>
+				</div>
+
+				<div className="space-y-2.5">
+					<div className="space-y-1">
+						<p className="text-xs font-medium text-foreground">
+							Project favicon size
+						</p>
+						<SettingsHint>
+							Controls the favicon size shown beside each project in the
+							sidebar.
+						</SettingsHint>
+					</div>
+					<SettingsSegmentedControl
+						legend="Project favicon size"
+						value={uiSettings.projectFaviconSize}
+						onChange={(projectFaviconSize) =>
+							updateUISettings({ projectFaviconSize })
+						}
+						options={PROJECT_FAVICON_SIZE_OPTIONS_LIST}
 					/>
 				</div>
 

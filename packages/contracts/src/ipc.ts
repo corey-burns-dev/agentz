@@ -27,6 +27,8 @@ import type {
 	OrchestrationReadModel,
 } from "./orchestration";
 import type {
+	ProjectReadFileInput,
+	ProjectReadFileResult,
 	ProjectSearchEntriesInput,
 	ProjectSearchEntriesResult,
 	ProjectWriteFileInput,
@@ -120,6 +122,7 @@ export interface NativeApi {
 		searchEntries: (
 			input: ProjectSearchEntriesInput,
 		) => Promise<ProjectSearchEntriesResult>;
+		readFile: (input: ProjectReadFileInput) => Promise<ProjectReadFileResult>;
 		writeFile: (
 			input: ProjectWriteFileInput,
 		) => Promise<ProjectWriteFileResult>;

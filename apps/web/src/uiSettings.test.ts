@@ -130,6 +130,7 @@ describe("uiSettings", () => {
 			diffShowLineNumbers: true,
 			diffSize: "balanced",
 			diffWrap: false,
+			projectFaviconSize: "medium",
 			themeMode: "dark",
 			themePreset: "default-dark",
 		});
@@ -164,6 +165,7 @@ describe("uiSettings", () => {
 			diffWrap: false,
 			fontSize: 110,
 			glassEffect: true,
+			projectFaviconSize: "large",
 			radiusPreset: "pill",
 			themeMode: "dark",
 			themePreset: "midnight",

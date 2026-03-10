@@ -266,7 +266,87 @@ function makeProviderServiceLayer() {
 	};
 }
 
+function makeMultiProviderServiceLayer() {
+	const codex = makeFakeCodexAdapter("codex");
+	const gemini = makeFakeCodexAdapter("gemini");
+	const registry: typeof ProviderAdapterRegistry.Service = {
+		getByProvider: (provider) => {
+			if (provider === "codex") {
+				return Effect.succeed(codex.adapter);
+			}
+			if (provider === "gemini") {
+				return Effect.succeed(gemini.adapter);
+			}
+			return Effect.fail(new ProviderUnsupportedError({ provider }));
+		},
+		listProviders: () => Effect.succeed(["codex", "gemini"]),
+	};
+
+	const providerAdapterLayer = Layer.succeed(ProviderAdapterRegistry, registry);
+	const runtimeRepositoryLayer = ProviderSessionRuntimeRepositoryLive.pipe(
+		Layer.provide(SqlitePersistenceMemory),
+	);
+	const directoryLayer = ProviderSessionDirectoryLive.pipe(
+		Layer.provide(runtimeRepositoryLayer),
+	);
+
+	const layer = it.layer(
+		Layer.mergeAll(
+			makeProviderServiceLive().pipe(
+				Layer.provide(providerAdapterLayer),
+				Layer.provide(directoryLayer),
+				Layer.provideMerge(AnalyticsService.layerTest),
+			),
+			directoryLayer,
+			runtimeRepositoryLayer,
+			NodeServices.layer,
+		),
+	);
+
+	return {
+		codex,
+		gemini,
+		layer,
+	};
+}
+
 const routing = makeProviderServiceLayer();
+const multiProviderRouting = makeMultiProviderServiceLayer();
+
+multiProviderRouting.layer(
+	"ProviderServiceLive stops stale sessions before switching providers",
+	(it) => {
+		it.effect(
+			"cleans up the previous provider session for the same thread",
+			() =>
+				Effect.gen(function* () {
+					const provider = yield* ProviderService;
+					const threadId = asThreadId("thread-provider-switch");
+
+					yield* provider.startSession(threadId, {
+						threadId,
+						provider: "codex",
+						runtimeMode: "full-access",
+					});
+					yield* provider.startSession(threadId, {
+						threadId,
+						provider: "gemini",
+						runtimeMode: "full-access",
+					});
+
+					assert.deepEqual(multiProviderRouting.codex.stopSession.mock.calls, [
+						[threadId],
+					]);
+					const sessions = yield* provider.listSessions();
+					assert.deepEqual(
+						sessions.map((session) => session.provider),
+						["gemini"],
+					);
+				}),
+		);
+	},
+);
+
 it.effect(
 	"ProviderServiceLive keeps persisted resumable sessions on startup",
 	() =>

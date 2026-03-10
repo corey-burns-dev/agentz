@@ -34,6 +34,13 @@ export type DiffSizeOption = (typeof DIFF_SIZE_OPTIONS)[number];
 
 export const RADIUS_PRESETS = ["sharp", "default", "rounded", "pill"] as const;
 export type RadiusPreset = (typeof RADIUS_PRESETS)[number];
+export const PROJECT_FAVICON_SIZE_OPTIONS = [
+	"small",
+	"medium",
+	"large",
+] as const;
+export type ProjectFaviconDisplaySize =
+	(typeof PROJECT_FAVICON_SIZE_OPTIONS)[number];
 
 export type ResolvedTheme = "light" | "dark";
 
@@ -85,6 +92,11 @@ const UISettingsSchema = Schema.Struct({
 	),
 	radiusPreset: Schema.Literals(RADIUS_PRESETS).pipe(
 		Schema.withConstructorDefault(() => Option.some<RadiusPreset>("default")),
+	),
+	projectFaviconSize: Schema.Literals(PROJECT_FAVICON_SIZE_OPTIONS).pipe(
+		Schema.withConstructorDefault(() =>
+			Option.some<ProjectFaviconDisplaySize>("medium"),
+		),
 	),
 });
 

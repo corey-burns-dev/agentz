@@ -34,6 +34,7 @@ import { GitServiceLive } from "./GitService.ts";
 
 interface FakeGhScenario {
 	prListSequence?: string[];
+	issueListJson?: string;
 	createdPrUrl?: string;
 	defaultBranch?: string;
 	failWith?: GitHubCliError;
@@ -195,8 +196,16 @@ function createGitHubCliWithFakeGh(scenario: FakeGhScenario = {}): {
 	const prListQueue = [...(scenario.prListSequence ?? [])];
 	const ghCalls: string[] = [];
 
+	const toArgsWithRepository = (
+		args: ReadonlyArray<string>,
+		repository?: string,
+	): string[] =>
+		repository && repository.trim().length > 0
+			? [...args, "--repo", repository]
+			: [...args];
+
 	const execute: GitHubCliShape["execute"] = (input) => {
-		const args = [...input.args];
+		const args = toArgsWithRepository(input.args, input.repository);
 		ghCalls.push(args.join(" "));
 
 		if (scenario.failWith) {
@@ -246,6 +255,16 @@ function createGitHubCliWithFakeGh(scenario: FakeGhScenario = {}): {
 			});
 		}
 
+		if (args[0] === "issue" && args[1] === "list") {
+			return Effect.succeed({
+				stdout: `${scenario.issueListJson ?? "[]"}\n`,
+				stderr: "",
+				code: 0,
+				signal: null,
+				timedOut: false,
+			});
+		}
+
 		return Effect.fail(
 			new GitHubCliError({
 				operation: "execute",
@@ -260,6 +279,7 @@ function createGitHubCliWithFakeGh(scenario: FakeGhScenario = {}): {
 			listOpenPullRequests: (input) =>
 				execute({
 					cwd: input.cwd,
+					...(input.repository ? { repository: input.repository } : {}),
 					args: [
 						"pr",
 						"list",
@@ -283,6 +303,7 @@ function createGitHubCliWithFakeGh(scenario: FakeGhScenario = {}): {
 			createPullRequest: (input) =>
 				execute({
 					cwd: input.cwd,
+					...(input.repository ? { repository: input.repository } : {}),
 					args: [
 						"pr",
 						"create",
@@ -299,6 +320,7 @@ function createGitHubCliWithFakeGh(scenario: FakeGhScenario = {}): {
 			getDefaultBranch: (input) =>
 				execute({
 					cwd: input.cwd,
+					...(input.repository ? { repository: input.repository } : {}),
 					args: [
 						"repo",
 						"view",
@@ -526,6 +548,78 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
 				const status = yield* manager.status({ cwd: repoDir });
 				expect(status.branch).toBe("feature/status-no-gh");
 				expect(status.pr).toBeNull();
+			}),
+	);
+
+	it.effect(
+		"status resolves the GitHub repository from origin before calling gh",
+		() =>
+			Effect.gen(function* () {
+				const repoDir = yield* makeTempDir("agents-git-manager-");
+				yield* initRepo(repoDir);
+				yield* runGit(repoDir, [
+					"remote",
+					"add",
+					"origin",
+					"https://github.com/corey-burns-dev/agents.git",
+				]);
+				yield* runGit(repoDir, [
+					"remote",
+					"add",
+					"upstream",
+					"https://github.com/burnsco/agentz.git",
+				]);
+				yield* runGit(repoDir, ["config", "remote.pushDefault", "origin"]);
+
+				const { manager, ghCalls } = yield* makeManager({
+					ghScenario: {
+						prListSequence: ["[]"],
+					},
+				});
+
+				const status = yield* manager.status({ cwd: repoDir });
+				expect(status.pr).toBeNull();
+				expect(ghCalls).toContain(
+					"pr list --head main --state all --limit 20 --json number,title,url,baseRefName,headRefName,state,mergedAt,updatedAt --repo corey-burns-dev/agents",
+				);
+			}),
+	);
+
+	it.effect(
+		"listIssues returns an empty list when the repository has issues disabled",
+		() =>
+			Effect.gen(function* () {
+				const repoDir = yield* makeTempDir("agents-git-manager-");
+				yield* initRepo(repoDir);
+				yield* runGit(repoDir, [
+					"remote",
+					"add",
+					"origin",
+					"https://github.com/corey-burns-dev/agents.git",
+				]);
+				yield* runGit(repoDir, [
+					"remote",
+					"add",
+					"upstream",
+					"https://github.com/burnsco/agentz.git",
+				]);
+				yield* runGit(repoDir, ["config", "remote.pushDefault", "origin"]);
+
+				const { manager, ghCalls } = yield* makeManager({
+					ghScenario: {
+						failWith: new GitHubCliError({
+							operation: "execute",
+							detail:
+								"GitHub CLI command failed: the 'corey-burns-dev/agents' repository has disabled issues",
+						}),
+					},
+				});
+
+				const result = yield* manager.listIssues({ cwd: repoDir, limit: 20 });
+				expect(result).toEqual({ issues: [] });
+				expect(ghCalls).toContain(
+					"issue list --state all --limit 20 --json number,title,url,state,labels --repo corey-burns-dev/agents",
+				);
 			}),
 	);
 

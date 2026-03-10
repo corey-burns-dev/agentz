@@ -182,6 +182,20 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
 			event: ProviderRuntimeEvent,
 		): Effect.Effect<void> => publishRuntimeEvent(event);
 
+		const stopActiveSessionsForThread = (threadId: ThreadId) =>
+			Effect.forEach(
+				adapters,
+				(adapter) =>
+					adapter
+						.hasSession(threadId)
+						.pipe(
+							Effect.flatMap((hasSession) =>
+								hasSession ? adapter.stopSession(threadId) : Effect.void,
+							),
+						),
+				{ concurrency: "unbounded" },
+			).pipe(Effect.asVoid);
+
 		const worker = Effect.forever(
 			Queue.take(runtimeEventQueue).pipe(Effect.flatMap(processRuntimeEvent)),
 		);
@@ -311,6 +325,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
 					threadId,
 					provider: parsed.provider ?? "codex",
 				};
+				yield* stopActiveSessionsForThread(threadId);
 				const adapter = yield* registry.getByProvider(input.provider);
 				const session = yield* adapter.startSession(input);
 

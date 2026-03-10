@@ -110,6 +110,10 @@ import {
 	buildPlanImplementationThreadTitle,
 	resolvePlanFollowUpSubmission,
 } from "../proposedPlan";
+import {
+	resolveSelectedProvider,
+	resolveVisibleProviderOptions,
+} from "../providerSelection";
 import { stripSettingsTabSearchParams } from "../routes/settings/-settingsNavigation";
 import {
 	deriveActivePlanState,
@@ -123,7 +127,6 @@ import {
 	formatElapsed,
 	hasToolActivityForTurn,
 	isLatestTurnSettled,
-	PROVIDER_OPTIONS,
 } from "../session-logic";
 import { useStore } from "../store";
 import {
@@ -165,20 +168,6 @@ const EMPTY_PENDING_USER_INPUT_ANSWERS: Record<
 > = {};
 const COMPOSER_PATH_QUERY_DEBOUNCE_MS = 120;
 const WORKTREE_BRANCH_PREFIX = "agents";
-
-function isAvailableProviderOption(
-	option: (typeof PROVIDER_OPTIONS)[number],
-): option is {
-	value: ProviderKind;
-	label: string;
-	available: true;
-} {
-	return option.available;
-}
-
-const AVAILABLE_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter(
-	isAvailableProviderOption,
-);
 
 function getCustomModelOptionsByProvider(settings: {
 	customCodexModels: readonly string[];
@@ -464,6 +453,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
 	const activeProject = projects.find((p) => p.id === activeThread?.projectId);
 
 	useEffect(() => {
+		// Keep the local draft route stable until the projected thread with the same
+		// id arrives from the server, then clear the draft state.
+		if (!serverThread || !draftThread) {
+			return;
+		}
+		clearDraftThread(threadId);
+	}, [clearDraftThread, draftThread, serverThread, threadId]);
+
+	useEffect(() => {
 		if (!activeThread?.id) return;
 		if (!latestTurnSettled) return;
 		if (!activeLatestTurn?.completedAt) return;
@@ -525,8 +523,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
 	const selectedServiceTierSetting = settings.codexServiceTier;
 	const selectedServiceTier = resolveAppServiceTier(selectedServiceTierSetting);
 	const lockedProvider: ProviderKind | null = null;
-	const selectedProvider: ProviderKind =
-		lockedProvider ?? selectedProviderByThreadId ?? "codex";
+	const providerStatuses =
+		serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
+	const selectedProvider: ProviderKind = resolveSelectedProvider({
+		lockedProvider,
+		draftProvider: selectedProviderByThreadId,
+		sessionProvider,
+		threadModel: activeThread?.model ?? null,
+		projectModel: activeProject?.model ?? null,
+	});
 	const effectiveInteractionMode: ProviderInteractionMode =
 		selectedProvider === "gemini" ? "default" : interactionMode;
 	const baseThreadModel = resolveModelSlugForProvider(
@@ -598,27 +603,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
 			: (normalizeModelSlug(selectedModelForPicker, selectedProvider) ??
 					selectedModelForPicker);
 	}, [modelOptionsByProvider, selectedModelForPicker, selectedProvider]);
-	const availableProvidersFromServer = useMemo(() => {
-		const statuses =
-			serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
-		const available = statuses
-			.filter((status) => status.available)
-			.map((status) => status.provider);
-		if (available.length === 0) {
-			// Default to Codex to keep the UI usable when config is missing
-			// or no providers are detected yet. We still gate interactions
-			// client-side when nothing is truly available.
-			return new Set<ProviderKind>(["codex"]);
-		}
-		return new Set<ProviderKind>(available);
-	}, [serverConfigQuery.data?.providers]);
-
 	const availableProviderOptions = useMemo(
 		() =>
-			AVAILABLE_PROVIDER_OPTIONS.filter((option) =>
-				availableProvidersFromServer.has(option.value),
-			),
-		[availableProvidersFromServer],
+			resolveVisibleProviderOptions({
+				providerStatuses,
+				settings,
+			}),
+		[providerStatuses, settings],
 	);
 
 	const searchableModelOptions = useMemo(
@@ -1119,9 +1110,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
 	const keybindings = serverConfigQuery.data?.keybindings ?? EMPTY_KEYBINDINGS;
 	const availableEditors =
 		serverConfigQuery.data?.availableEditors ?? EMPTY_AVAILABLE_EDITORS;
-	const providerStatuses =
-		serverConfigQuery.data?.providers ?? EMPTY_PROVIDER_STATUSES;
-	const activeProvider = activeThread?.session?.provider ?? "codex";
+	const activeProvider = activeThread?.session?.provider ?? selectedProvider;
 	const activeProviderStatus = useMemo(
 		() =>
 			providerStatuses.find((status) => status.provider === activeProvider) ??
@@ -2189,9 +2178,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
 				createdAt: messageCreatedAt,
 			});
 			turnStartSucceeded = true;
-			if (isFirstMessage) {
-				clearDraftThread(threadIdForSend);
-			}
 		})().catch(async (err: unknown) => {
 			if (createdServerThreadForLocalDraft && !turnStartSucceeded) {
 				await api.orchestration

@@ -1,17 +1,17 @@
 import type { GitStatusResult, ProjectEntry } from "@agents/contracts";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	CheckCircle2Icon,
 	ChevronRightIcon,
-	ExternalLinkIcon,
+	CircleIcon,
 	FileIcon,
 	FolderIcon,
 	FolderTreeIcon,
 	GitBranchIcon,
 	GitPullRequestIcon,
 	PanelRightCloseIcon,
-	RefreshCwIcon,
+	PlusIcon,
 	SearchIcon,
-	TriangleAlertIcon,
 } from "lucide-react";
 import {
 	memo,
@@ -23,12 +23,16 @@ import {
 } from "react";
 import {
 	gitBranchesQueryOptions,
-	gitIssuesQueryOptions,
 	gitStatusQueryOptions,
 } from "~/lib/gitReactQuery";
-import { projectSearchEntriesQueryOptions } from "~/lib/projectReactQuery";
+import {
+	projectSearchEntriesQueryOptions,
+	projectWriteFileMutationOptions,
+} from "~/lib/projectReactQuery";
+import { projectTodoFileQueryOptions } from "~/lib/projectTodoReactQuery";
 import { cn } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
+import { appendProjectTodoItem, parseProjectTodoItems } from "~/projectTodos";
 import {
 	preferredTerminalEditor,
 	resolvePathLinkTarget,
@@ -61,7 +65,6 @@ interface ProjectDockProps {
 }
 
 const FILE_TREE_FETCH_LIMIT = 5_000;
-const ISSUE_FETCH_LIMIT = 20;
 
 function compareTreeNodes(
 	left: WorkspaceTreeNode,
@@ -315,11 +318,13 @@ const ProjectDock = memo(function ProjectDock({
 	workspaceCwd,
 }: ProjectDockProps) {
 	const [fileFilter, setFileFilter] = useState("");
+	const [newTodoText, setNewTodoText] = useState("");
 	const [expandedDirectories, setExpandedDirectories] = useState<
 		Record<string, boolean>
 	>({});
-	const shouldLoadGitData = activeTab === "git" && gitCwd !== null;
+	const shouldLoadTodoData = activeTab === "git" && workspaceCwd !== null;
 	const notificationProjectKey = workspaceCwd;
+	const queryClient = useQueryClient();
 	const {
 		settings: projectNotificationSettings,
 		updateSettings: updateProjectNotificationSettings,
@@ -330,16 +335,16 @@ const ProjectDock = memo(function ProjectDock({
 	const { data: gitStatus = null, error: gitStatusError } = useQuery(
 		gitStatusQueryOptions(gitCwd),
 	);
-	const {
-		data: issuesResult,
-		error: issuesError,
-		isFetching: isIssuesFetching,
-		refetch: refetchIssues,
-	} = useQuery(
-		gitIssuesQueryOptions({
-			cwd: gitCwd,
-			enabled: shouldLoadGitData && branchList?.isRepo === true,
-			limit: ISSUE_FETCH_LIMIT,
+	const projectTodoFileQuery = useQuery(
+		projectTodoFileQueryOptions({
+			cwd: workspaceCwd,
+			enabled: shouldLoadTodoData,
+		}),
+	);
+	const writeTodoFileMutation = useMutation(
+		projectWriteFileMutationOptions({
+			cwd: workspaceCwd,
+			queryClient,
 		}),
 	);
 	const workspaceEntriesQuery = useQuery(
@@ -350,6 +355,18 @@ const ProjectDock = memo(function ProjectDock({
 			enabled: activeTab === "files",
 			limit: FILE_TREE_FETCH_LIMIT,
 		}),
+	);
+	const todoItems = useMemo(
+		() => parseProjectTodoItems(projectTodoFileQuery.data?.contents ?? null),
+		[projectTodoFileQuery.data?.contents],
+	);
+	const openTodoItems = useMemo(
+		() => todoItems.filter((item) => !item.completed),
+		[todoItems],
+	);
+	const completedTodoItems = useMemo(
+		() => todoItems.filter((item) => item.completed),
+		[todoItems],
 	);
 
 	const workspaceTree = useMemo(
@@ -379,25 +396,6 @@ const ProjectDock = memo(function ProjectDock({
 		);
 	}, [expandedDirectories, workspaceTree]);
 
-	const openExternal = useCallback((url: string) => {
-		const api = readNativeApi();
-		if (!api) {
-			toastManager.add({
-				type: "error",
-				title: "Link opening is unavailable.",
-			});
-			return;
-		}
-		void api.shell.openExternal(url).catch((error) => {
-			toastManager.add({
-				type: "error",
-				title: "Unable to open link",
-				description:
-					error instanceof Error ? error.message : "An error occurred.",
-			});
-		});
-	}, []);
-
 	const openWorkspaceEntry = useCallback(
 		(relativePath: string) => {
 			const api = readNativeApi();
@@ -422,6 +420,68 @@ const ProjectDock = memo(function ProjectDock({
 		},
 		[workspaceCwd],
 	);
+
+	const handleTodoSubmit = useCallback(() => {
+		if (!workspaceCwd) {
+			toastManager.add({
+				type: "error",
+				title: "Project todos are unavailable.",
+			});
+			return;
+		}
+
+		const todoText = newTodoText.trim();
+		if (todoText.length === 0) {
+			toastManager.add({
+				type: "warning",
+				title: "Enter a todo",
+			});
+			return;
+		}
+
+		const relativePath = projectTodoFileQuery.data?.relativePath ?? "TODO.md";
+		const contents = appendProjectTodoItem(
+			projectTodoFileQuery.data?.contents ?? null,
+			todoText,
+		);
+
+		writeTodoFileMutation.mutate(
+			{
+				relativePath,
+				contents,
+			},
+			{
+				onSuccess: () => {
+					setNewTodoText("");
+					toastManager.add({
+						type: "success",
+						title:
+							projectTodoFileQuery.data?.exists === true
+								? "Todo added"
+								: "Todo file created",
+						description: relativePath,
+					});
+				},
+				onError: (error) => {
+					toastManager.add({
+						type: "error",
+						title: "Could not save todo",
+						description:
+							error instanceof Error
+								? error.message
+								: "An error occurred while saving.",
+					});
+				},
+			},
+		);
+	}, [
+		newTodoText,
+		projectTodoFileQuery.data?.contents,
+		projectTodoFileQuery.data?.exists,
+		projectTodoFileQuery.data?.relativePath,
+		workspaceCwd,
+		writeTodoFileMutation,
+	]);
 
 	const toggleDirectory = useCallback((path: string) => {
 		setExpandedDirectories((current) => ({
@@ -512,7 +572,7 @@ const ProjectDock = memo(function ProjectDock({
 					)}
 				>
 					<GitBranchIcon className="size-3.5" />
-					Git + Issues
+					Git + Todos
 				</button>
 				<button
 					type="button"
@@ -625,92 +685,118 @@ const ProjectDock = memo(function ProjectDock({
 						<div>
 							<div className="flex items-center justify-between gap-3">
 								<p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-									Issues
+									Todos
 								</p>
-								<Button
-									size="icon-xs"
-									variant="ghost"
-									onClick={() => {
-										void refetchIssues();
-									}}
-									disabled={!isRepo || isIssuesFetching}
-									aria-label="Refresh issues"
-								>
-									<RefreshCwIcon
-										className={cn(
-											"size-3.5",
-											isIssuesFetching && "animate-spin",
-										)}
-									/>
-								</Button>
+								{projectTodoFileQuery.data?.exists ? (
+									<Button
+										size="xs"
+										variant="ghost"
+										onClick={() =>
+											openWorkspaceEntry(
+												projectTodoFileQuery.data?.relativePath ?? "TODO.md",
+											)
+										}
+									>
+										Open file
+									</Button>
+								) : null}
 							</div>
 
 							<div className="space-y-2 pt-2">
-								{!isRepo ? (
+								<form
+									className="flex gap-2"
+									onSubmit={(event) => {
+										event.preventDefault();
+										handleTodoSubmit();
+									}}
+								>
+									<Input
+										value={newTodoText}
+										onChange={(event) => setNewTodoText(event.target.value)}
+										placeholder="Add a project todo"
+										disabled={!workspaceCwd || writeTodoFileMutation.isPending}
+									/>
+									<Button
+										type="submit"
+										size="sm"
+										disabled={
+											!workspaceCwd ||
+											writeTodoFileMutation.isPending ||
+											newTodoText.trim().length === 0
+										}
+									>
+										<PlusIcon className="size-3.5" />
+										Add
+									</Button>
+								</form>
+
+								{!workspaceCwd ? (
 									<div className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
-										GitHub issues are unavailable because this project is not a
-										git repository.
+										Project todos are unavailable because this thread has no
+										workspace root.
 									</div>
-								) : issuesError ? (
-									<div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-3 text-sm text-amber-800 dark:text-amber-200">
-										<div className="flex items-start gap-2">
-											<TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-											<span>
-												{issuesError instanceof Error
-													? issuesError.message
-													: "Could not load GitHub issues."}
-											</span>
-										</div>
+								) : projectTodoFileQuery.error ? (
+									<div className="rounded-xl border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive/85">
+										{projectTodoFileQuery.error instanceof Error
+											? projectTodoFileQuery.error.message
+											: "Could not load project todos."}
 									</div>
-								) : issuesResult?.issues.length ? (
-									issuesResult.issues.map((issue) => (
-										<button
-											key={issue.url}
-											type="button"
-											onClick={() => openExternal(issue.url)}
-											className="flex w-full items-start justify-between gap-3 rounded-xl border border-border/70 bg-background/70 p-3 text-left transition hover:border-border hover:bg-accent/40"
-										>
-											<div className="min-w-0">
-												<div className="flex items-center gap-2">
-													<Badge
-														variant="outline"
-														className={cn(
-															"border text-2xs",
-															statusToneClasses(issue.state),
-														)}
-													>
-														{issue.state}
-													</Badge>
-													<span className="text-xs text-muted-foreground">
-														#{issue.number}
-													</span>
-												</div>
-												<p className="pt-2 text-sm font-medium leading-snug">
-													{issue.title}
-												</p>
-												{issue.labels.length > 0 ? (
-													<div className="flex flex-wrap gap-1 pt-2">
-														{issue.labels.slice(0, 3).map((label) => (
-															<Badge
-																key={`${issue.number}:${label.name}`}
-																variant="secondary"
-																className="rounded-md px-1.5 py-0 text-2xs"
-															>
-																{label.name}
-															</Badge>
-														))}
-													</div>
-												) : null}
-											</div>
-											<ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-										</button>
-									))
 								) : (
-									<div className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
-										{isIssuesFetching
-											? "Loading issues..."
-											: "No GitHub issues found for this repository."}
-									</div>
+									<>
+										<div className="flex flex-wrap gap-2">
+											<Badge variant="outline" className="rounded-md text-2xs">
+												{openTodoItems.length} open
+											</Badge>
+											<Badge
+												variant="secondary"
+												className="rounded-md text-2xs"
+											>
+												{completedTodoItems.length} done
+											</Badge>
+											<Badge
+												variant="secondary"
+												className="rounded-md text-2xs"
+											>
+												{projectTodoFileQuery.data?.relativePath ?? "TODO.md"}
+											</Badge>
+										</div>
+
+										{todoItems.length > 0 ? (
+											<div className="space-y-2">
+												{todoItems.map((item) => (
+													<div
+														key={item.id}
+														className="flex items-start gap-2 rounded-xl border border-border/70 bg-background/70 p-3"
+													>
+														{item.completed ? (
+															<CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+														) : (
+															<CircleIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+														)}
+														<div className="min-w-0">
+															<p
+																className={cn(
+																	"text-sm leading-snug",
+																	item.completed &&
+																		"text-muted-foreground line-through",
+																)}
+															>
+																{item.text}
+															</p>
+														</div>
+													</div>
+												))}
+											</div>
+										) : (
+											<div className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
+												{projectTodoFileQuery.isLoading
+													? "Loading todos..."
+													: projectTodoFileQuery.data?.exists
+														? "No markdown checklist items found in the todo file yet."
+														: "No todo file yet. Add your first task and Agents will create TODO.md in the project root."}
+											</div>
+										)}
+									</>
 								)}
 							</div>
 						</div>
@@ -764,7 +850,7 @@ const ProjectDock = memo(function ProjectDock({
 			<div className="border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
 				{activeTab === "files"
 					? "Click a file to open it in your preferred editor."
-					: "Use the dock to review repo status and jump to GitHub issues."}
+					: "Use the dock to review repo status and manage project todos."}
 			</div>
 		</div>
 	);

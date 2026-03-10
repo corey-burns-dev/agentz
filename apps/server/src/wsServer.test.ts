@@ -1734,6 +1734,59 @@ describe("WebSocket Server", () => {
 		).toBe("# Plan\n\n- step 1\n");
 	});
 
+	it("supports projects.readFile within the workspace root", async () => {
+		const workspace = makeTempDir("agents-ws-read-file-");
+		fs.writeFileSync(
+			path.join(workspace, "TODO.md"),
+			"# TODO\n\n- [ ] Ship it\n",
+			"utf8",
+		);
+
+		server = await createTestServer({ cwd: "/test" });
+		const addr = server.address();
+		const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+		const ws = await connectWs(port);
+		connections.push(ws);
+		await waitForMessage(ws);
+
+		const response = await sendRequest(ws, WS_METHODS.projectsReadFile, {
+			cwd: workspace,
+			relativePath: "TODO.md",
+		});
+
+		expect(response.error).toBeUndefined();
+		expect(response.result).toEqual({
+			relativePath: "TODO.md",
+			exists: true,
+			contents: "# TODO\n\n- [ ] Ship it\n",
+		});
+	});
+
+	it("returns exists false for a missing projects.readFile path", async () => {
+		const workspace = makeTempDir("agents-ws-read-file-missing-");
+
+		server = await createTestServer({ cwd: "/test" });
+		const addr = server.address();
+		const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+		const ws = await connectWs(port);
+		connections.push(ws);
+		await waitForMessage(ws);
+
+		const response = await sendRequest(ws, WS_METHODS.projectsReadFile, {
+			cwd: workspace,
+			relativePath: "TODO.md",
+		});
+
+		expect(response.error).toBeUndefined();
+		expect(response.result).toEqual({
+			relativePath: "TODO.md",
+			exists: false,
+			contents: null,
+		});
+	});
+
 	it("rejects projects.writeFile paths outside the workspace root", async () => {
 		const workspace = makeTempDir("agents-ws-write-file-reject-");
 
@@ -1756,6 +1809,28 @@ describe("WebSocket Server", () => {
 			"Workspace file path must stay within the project root.",
 		);
 		expect(fs.existsSync(path.join(workspace, "..", "escape.md"))).toBe(false);
+	});
+
+	it("rejects projects.readFile paths outside the workspace root", async () => {
+		const workspace = makeTempDir("agents-ws-read-file-reject-");
+
+		server = await createTestServer({ cwd: "/test" });
+		const addr = server.address();
+		const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+
+		const ws = await connectWs(port);
+		connections.push(ws);
+		await waitForMessage(ws);
+
+		const response = await sendRequest(ws, WS_METHODS.projectsReadFile, {
+			cwd: workspace,
+			relativePath: "../escape.md",
+		});
+
+		expect(response.result).toBeUndefined();
+		expect(response.error?.message).toContain(
+			"Workspace file path must stay within the project root.",
+		);
 	});
 
 	it("routes git core methods over websocket", async () => {

@@ -35,6 +35,40 @@ interface IssueInfo {
 	}>;
 }
 
+function parseGitHubRepositoryFromRemoteUrl(remoteUrl: string): string | null {
+	const trimmed = remoteUrl.trim();
+	if (trimmed.length === 0) {
+		return null;
+	}
+
+	const httpsMatch = trimmed.match(
+		/^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i,
+	);
+	if (httpsMatch) {
+		return `${httpsMatch[1]}/${httpsMatch[2]}`;
+	}
+
+	const sshMatch = trimmed.match(
+		/^(?:ssh:\/\/)?git@github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/i,
+	);
+	if (sshMatch) {
+		return `${sshMatch[1]}/${sshMatch[2]}`;
+	}
+
+	return null;
+}
+
+function isIssuesDisabledError(error: unknown): boolean {
+	if (!error || typeof error !== "object") {
+		return false;
+	}
+	const detail = (error as { detail?: unknown }).detail;
+	return (
+		typeof detail === "string" &&
+		detail.toLowerCase().includes("disabled issues")
+	);
+}
+
 function parsePullRequestList(raw: unknown): PullRequestInfo[] {
 	if (!Array.isArray(raw)) return [];
 
@@ -274,36 +308,75 @@ export const makeGitManager = Effect.gen(function* () {
 	const tempDir =
 		process.env.TMPDIR ?? process.env.TEMP ?? process.env.TMP ?? "/tmp";
 
+	const resolveGitHubRepository = (cwd: string, branch: string | null) =>
+		Effect.gen(function* () {
+			const candidateRemoteNames = [
+				branch
+					? yield* gitCore.readConfigValue(cwd, `branch.${branch}.pushRemote`)
+					: null,
+				yield* gitCore.readConfigValue(cwd, "remote.pushDefault"),
+				branch
+					? yield* gitCore.readConfigValue(cwd, `branch.${branch}.remote`)
+					: null,
+				"origin",
+			];
+			const seen = new Set<string>();
+
+			for (const remoteName of candidateRemoteNames) {
+				const normalizedRemoteName = remoteName?.trim();
+				if (!normalizedRemoteName || seen.has(normalizedRemoteName)) {
+					continue;
+				}
+				seen.add(normalizedRemoteName);
+
+				const remoteUrl = yield* gitCore.readConfigValue(
+					cwd,
+					`remote.${normalizedRemoteName}.url`,
+				);
+				if (!remoteUrl) {
+					continue;
+				}
+
+				const repository = parseGitHubRepositoryFromRemoteUrl(remoteUrl);
+				if (repository) {
+					return repository;
+				}
+			}
+
+			return null;
+		});
+
 	const findOpenPr = (cwd: string, branch: string) =>
-		gitHubCli
-			.listOpenPullRequests({
+		Effect.gen(function* () {
+			const repository = yield* resolveGitHubRepository(cwd, branch);
+			const prs = yield* gitHubCli.listOpenPullRequests({
 				cwd,
 				headBranch: branch,
+				...(repository ? { repository } : {}),
 				limit: 1,
-			})
-			.pipe(
-				Effect.map((prs) => {
-					const [first] = prs;
-					if (!first) {
-						return null;
-					}
-					return {
-						number: first.number,
-						title: first.title,
-						url: first.url,
-						baseRefName: first.baseRefName,
-						headRefName: first.headRefName,
-						state: "open",
-						updatedAt: null,
-					} satisfies PullRequestInfo;
-				}),
-			);
+			});
+			const [first] = prs;
+			if (!first) {
+				return null;
+			}
+			return {
+				number: first.number,
+				title: first.title,
+				url: first.url,
+				baseRefName: first.baseRefName,
+				headRefName: first.headRefName,
+				state: "open",
+				updatedAt: null,
+			} satisfies PullRequestInfo;
+		});
 
 	const findLatestPr = (cwd: string, branch: string) =>
 		Effect.gen(function* () {
+			const repository = yield* resolveGitHubRepository(cwd, branch);
 			const stdout = yield* gitHubCli
 				.execute({
 					cwd,
+					...(repository ? { repository } : {}),
 					args: [
 						"pr",
 						"list",
@@ -366,8 +439,12 @@ export const makeGitManager = Effect.gen(function* () {
 				}
 			}
 
+			const repository = yield* resolveGitHubRepository(cwd, branch);
 			const defaultFromGh = yield* gitHubCli
-				.getDefaultBranch({ cwd })
+				.getDefaultBranch({
+					cwd,
+					...(repository ? { repository } : {}),
+				})
 				.pipe(Effect.catch(() => Effect.succeed(null)));
 			if (defaultFromGh) {
 				return defaultFromGh;
@@ -572,9 +649,11 @@ export const makeGitManager = Effect.gen(function* () {
 
 	const listIssues: GitManagerShape["listIssues"] = Effect.fnUntraced(
 		function* (input) {
+			const repository = yield* resolveGitHubRepository(input.cwd, null);
 			const stdout = yield* gitHubCli
 				.execute({
 					cwd: input.cwd,
+					...(repository ? { repository } : {}),
 					args: [
 						"issue",
 						"list",
@@ -586,7 +665,10 @@ export const makeGitManager = Effect.gen(function* () {
 						"number,title,url,state,labels",
 					],
 				})
-				.pipe(Effect.map((result) => result.stdout));
+				.pipe(
+					Effect.map((result) => result.stdout),
+					Effect.catchIf(isIssuesDisabledError, () => Effect.succeed("[]")),
+				);
 
 			const raw = stdout.trim();
 			if (raw.length === 0) {

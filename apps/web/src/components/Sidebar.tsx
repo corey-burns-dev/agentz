@@ -46,6 +46,10 @@ import {
 import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { newCommandId, newProjectId, newThreadId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
+import {
+	clearProjectFaviconOverrideForKey,
+	getProjectFaviconOverrideForKey,
+} from "../projectFaviconSettings";
 import { derivePendingApprovals } from "../session-logic";
 import { useStore } from "../store";
 import {
@@ -70,6 +74,8 @@ import {
 	shouldShowDesktopUpdateButton,
 	shouldToastDesktopUpdateActionResult,
 } from "./desktopUpdate.logic";
+import { ProjectFavicon } from "./ProjectFavicon";
+import { ProjectFaviconPickerDialog } from "./ProjectFaviconPickerDialog";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -251,54 +257,6 @@ function _AgentsWordmark() {
 	);
 }
 
-/**
- * Derives the server's HTTP origin (scheme + host + port) from the same
- * sources WsTransport uses, converting ws(s) to http(s).
- */
-function getServerHttpOrigin(): string {
-	const bridgeUrl = window.desktopBridge?.getWsUrl();
-	const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
-	const wsUrl =
-		bridgeUrl && bridgeUrl.length > 0
-			? bridgeUrl
-			: envUrl && envUrl.length > 0
-				? envUrl
-				: `ws://${window.location.hostname}:${window.location.port}`;
-	// Parse to extract just the origin, dropping path/query (e.g. ?token=…)
-	const httpUrl = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
-	try {
-		return new URL(httpUrl).origin;
-	} catch {
-		return httpUrl;
-	}
-}
-
-const serverHttpOrigin = getServerHttpOrigin();
-
-function ProjectFavicon({ cwd }: { cwd: string }) {
-	const [status, setStatus] = useState<"loading" | "loaded" | "error">(
-		"loading",
-	);
-
-	const src = `${serverHttpOrigin}/api/project-favicon?cwd=${encodeURIComponent(cwd)}`;
-
-	if (status === "error") {
-		return (
-			<FolderIcon className="size-3.5 shrink-0 text-muted-foreground/50" />
-		);
-	}
-
-	return (
-		<img
-			src={src}
-			alt=""
-			className={`size-3.5 shrink-0 rounded-sm object-contain ${status === "loading" ? "hidden" : ""}`}
-			onLoad={() => setStatus("loaded")}
-			onError={() => setStatus("error")}
-		/>
-	);
-}
-
 export default function Sidebar() {
 	const projects = useStore((store) => store.projects);
 	const threads = useStore((store) => store.threads);
@@ -358,6 +316,8 @@ export default function Sidebar() {
 	const [newCwd, setNewCwd] = useState("");
 	const [isPickingFolder, setIsPickingFolder] = useState(false);
 	const [isImportingFolder, setIsImportingFolder] = useState(false);
+	const [faviconPickerProjectId, setFaviconPickerProjectId] =
+		useState<ProjectId | null>(null);
 	const [isAddingProject, setIsAddingProject] = useState(false);
 	const [addProjectError, setAddProjectError] = useState<string | null>(null);
 	const [renamingThreadId, setRenamingThreadId] = useState<ThreadId | null>(
@@ -390,6 +350,11 @@ export default function Sidebar() {
 			}),
 		[draftThreadsByThreadId, projectDraftThreadIdByProjectId],
 	);
+	const faviconPickerProject =
+		faviconPickerProjectId === null
+			? null
+			: (projects.find((project) => project.id === faviconPickerProjectId) ??
+				null);
 	const projectCwdById = useMemo(
 		() =>
 			new Map(projects.map((project) => [project.id, project.cwd] as const)),
@@ -963,14 +928,35 @@ export default function Sidebar() {
 		async (projectId: ProjectId, position: { x: number; y: number }) => {
 			const api = readNativeApi();
 			if (!api) return;
-			const clicked = await api.contextMenu.show(
-				[{ id: "delete", label: "Delete", destructive: true }],
-				position,
-			);
-			if (clicked !== "delete") return;
-
 			const project = projects.find((entry) => entry.id === projectId);
 			if (!project) return;
+			const hasFaviconOverride =
+				getProjectFaviconOverrideForKey(project.cwd) !== null;
+			const clicked = await api.contextMenu.show(
+				[
+					{ id: "choose-favicon", label: "Choose favicon..." },
+					...(hasFaviconOverride
+						? [{ id: "reset-favicon", label: "Use auto-detected favicon" }]
+						: []),
+					{ id: "delete", label: "Delete", destructive: true },
+				],
+				position,
+			);
+			if (clicked === "choose-favicon") {
+				setFaviconPickerProjectId(projectId);
+				return;
+			}
+			if (clicked === "reset-favicon") {
+				clearProjectFaviconOverrideForKey(project.cwd);
+				toastManager.add({
+					type: "success",
+					title: `Reset favicon for "${project.name}"`,
+					description:
+						"The sidebar will use automatic favicon detection again.",
+				});
+				return;
+			}
+			if (clicked !== "delete") return;
 
 			const projectThreads = threads.filter(
 				(thread) => thread.projectId === projectId,
@@ -1416,6 +1402,9 @@ export default function Sidebar() {
 							const isThreadListExpanded = expandedThreadListsByProject.has(
 								project.id,
 							);
+							const unseenCompletionCount = projectThreads.filter((t) =>
+								hasUnseenCompletion(t),
+							).length;
 							const hasHiddenThreads =
 								projectThreads.length > THREAD_PREVIEW_LIMIT;
 							const visibleThreads =
@@ -1459,6 +1448,15 @@ export default function Sidebar() {
 												<span className="flex-1 truncate text-xs font-medium text-foreground/90">
 													{project.name}
 												</span>
+												{!project.expanded && unseenCompletionCount > 0 && (
+													<span
+														role="img"
+														className="flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-[9px] font-semibold tabular-nums text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300/90"
+														aria-label={`${unseenCompletionCount} finished thread${unseenCompletionCount === 1 ? "" : "s"}`}
+													>
+														{unseenCompletionCount}
+													</span>
+												)}
 											</CollapsibleTrigger>
 											<Tooltip>
 												<TooltipTrigger
@@ -1752,6 +1750,20 @@ export default function Sidebar() {
 					</SidebarMenuItem>
 				</SidebarMenu>
 			</SidebarFooter>
+			<ProjectFaviconPickerDialog
+				project={faviconPickerProject}
+				open={faviconPickerProject !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setFaviconPickerProjectId(null);
+					}
+				}}
+				onClearOverride={() => {
+					if (!faviconPickerProject) return;
+					clearProjectFaviconOverrideForKey(faviconPickerProject.cwd);
+					setFaviconPickerProjectId(null);
+				}}
+			/>
 		</>
 	);
 }

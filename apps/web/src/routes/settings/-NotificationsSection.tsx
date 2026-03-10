@@ -105,7 +105,7 @@ export function NotificationsSection() {
 
 					<p className="text-xs text-muted-foreground">
 						Per-project overrides are available from the project dock under{" "}
-						<span className="font-medium">Git + Issues</span>.
+						<span className="font-medium">Git + Todos</span>.
 					</p>
 				</div>
 			</div>

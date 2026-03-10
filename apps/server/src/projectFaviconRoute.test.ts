@@ -107,6 +107,21 @@ describe("tryHandleProjectFaviconRequest", () => {
 		});
 	});
 
+	it("serves a well-known favicon file from a nested frontend app root", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-frontend-root-");
+		const iconPath = path.join(projectDir, "frontend", "public", "favicon.svg");
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(iconPath, "<svg>frontend-favicon</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>frontend-favicon</svg>");
+		});
+	});
+
 	it("resolves icon href from source files when no well-known favicon exists", async () => {
 		const projectDir = makeTempDir("agents-favicon-route-source-");
 		const iconPath = path.join(projectDir, "public", "brand", "logo.svg");
@@ -123,6 +138,31 @@ describe("tryHandleProjectFaviconRequest", () => {
 			expect(response.statusCode).toBe(200);
 			expect(response.contentType).toContain("image/svg+xml");
 			expect(response.body).toBe("<svg>brand</svg>");
+		});
+	});
+
+	it("resolves icon href from a nested frontend source file", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-frontend-source-");
+		const iconPath = path.join(
+			projectDir,
+			"frontend",
+			"public",
+			"brand",
+			"logo.svg",
+		);
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(
+			path.join(projectDir, "frontend", "index.html"),
+			'<link rel="icon" href="/brand/logo.svg">',
+		);
+		fs.writeFileSync(iconPath, "<svg>frontend-brand</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>frontend-brand</svg>");
 		});
 	});
 
@@ -163,6 +203,42 @@ describe("tryHandleProjectFaviconRequest", () => {
 			expect(response.statusCode).toBe(200);
 			expect(response.contentType).toContain("image/svg+xml");
 			expect(response.body).toBe("<svg>brand-obj-order</svg>");
+		});
+	});
+
+	it("serves an explicit relativePath override when requested", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-override-");
+		const iconPath = path.join(projectDir, "assets", "brand", "icon.svg");
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(iconPath, "<svg>override</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}&relativePath=${encodeURIComponent("assets/brand/icon.svg")}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>override</svg>");
+		});
+	});
+
+	it("recursively scans the workspace for favicon-like files when well-known locations miss", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-recursive-");
+		const iconPath = path.join(
+			projectDir,
+			"packages",
+			"site",
+			"assets",
+			"favicon-logo.svg",
+		);
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(iconPath, "<svg>recursive</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>recursive</svg>");
 		});
 	});
 

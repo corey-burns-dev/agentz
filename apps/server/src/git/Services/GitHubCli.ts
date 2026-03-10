@@ -30,6 +30,7 @@ export interface GitHubCliShape {
 	readonly execute: (input: {
 		readonly cwd: string;
 		readonly args: ReadonlyArray<string>;
+		readonly repository?: string;
 		readonly timeoutMs?: number;
 	}) => Effect.Effect<ProcessRunResult, GitHubCliError>;
 
@@ -39,6 +40,7 @@ export interface GitHubCliShape {
 	readonly listOpenPullRequests: (input: {
 		readonly cwd: string;
 		readonly headBranch: string;
+		readonly repository?: string;
 		readonly limit?: number;
 	}) => Effect.Effect<ReadonlyArray<GitHubPullRequestSummary>, GitHubCliError>;
 
@@ -51,6 +53,7 @@ export interface GitHubCliShape {
 		readonly headBranch: string;
 		readonly title: string;
 		readonly bodyFile: string;
+		readonly repository?: string;
 	}) => Effect.Effect<void, GitHubCliError>;
 
 	/**
@@ -58,6 +61,7 @@ export interface GitHubCliShape {
 	 */
 	readonly getDefaultBranch: (input: {
 		readonly cwd: string;
+		readonly repository?: string;
 	}) => Effect.Effect<string | null, GitHubCliError>;
 }
 

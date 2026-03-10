@@ -169,6 +169,8 @@ export function createWsNativeApi(): NativeApi {
 		projects: {
 			searchEntries: (input) =>
 				transport.request(WS_METHODS.projectsSearchEntries, input),
+			readFile: (input) =>
+				transport.request(WS_METHODS.projectsReadFile, input),
 			writeFile: (input) =>
 				transport.request(WS_METHODS.projectsWriteFile, input),
 		},

@@ -17,10 +17,20 @@ import { Effect, Layer, Option, Result, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import {
+	formatClaudeCodeCliUpgradeMessage,
+	isClaudeCodeCliVersionSupported,
+	parseClaudeCodeCliVersion,
+} from "../claudeCodeCliVersion";
+import {
 	formatCodexCliUpgradeMessage,
 	isCodexCliVersionSupported,
 	parseCodexCliVersion,
 } from "../codexCliVersion";
+import {
+	formatGeminiCliUpgradeMessage,
+	isGeminiCliVersionSupported,
+	parseGeminiCliVersion,
+} from "../geminiCliVersion";
 import {
 	ProviderHealth,
 	type ProviderHealthShape,
@@ -28,6 +38,8 @@ import {
 
 const DEFAULT_TIMEOUT_MS = 4_000;
 const CODEX_PROVIDER = "codex" as const;
+const GEMINI_PROVIDER = "gemini" as const;
+const CLAUDE_CODE_PROVIDER = "claude-code" as const;
 
 // ── Pure helpers ────────────────────────────────────────────────────
 
@@ -43,12 +55,12 @@ function nonEmptyTrimmed(value: string | undefined): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function isCommandMissingCause(error: unknown): boolean {
+function isCommandMissingCause(binary: string, error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
 	const lower = error.message.toLowerCase();
 	return (
-		lower.includes("command not found: codex") ||
-		lower.includes("spawn codex enoent") ||
+		lower.includes(`command not found: ${binary}`) ||
+		lower.includes(`spawn ${binary} enoent`) ||
 		lower.includes("enoent") ||
 		lower.includes("notfound")
 	);
@@ -195,10 +207,10 @@ const collectStreamAsString = <E>(
 		(acc, chunk) => acc + new TextDecoder().decode(chunk),
 	);
 
-const runCodexCommand = (args: ReadonlyArray<string>) =>
+const runCommand = (binary: string, args: ReadonlyArray<string>) =>
 	Effect.gen(function* () {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-		const command = ChildProcess.make("codex", [...args], {
+		const command = ChildProcess.make(binary, [...args], {
 			shell: process.platform === "win32",
 		});
 
@@ -216,6 +228,96 @@ const runCodexCommand = (args: ReadonlyArray<string>) =>
 		return { stdout, stderr, code: exitCode } satisfies CommandResult;
 	}).pipe(Effect.scoped);
 
+function makeVersionOnlyProviderStatusChecker(input: {
+	readonly provider: typeof GEMINI_PROVIDER | typeof CLAUDE_CODE_PROVIDER;
+	readonly binary: string;
+	readonly unavailableMessage: string;
+	readonly parseVersion: (output: string) => string | null;
+	readonly isVersionSupported: (version: string) => boolean;
+	readonly formatUpgradeMessage: (version: string | null) => string;
+}) {
+	return Effect.gen(function* () {
+		const checkedAt = new Date().toISOString();
+		const versionProbe = yield* runCommand(input.binary, ["--version"]).pipe(
+			Effect.timeoutOption(DEFAULT_TIMEOUT_MS),
+			Effect.result,
+		);
+
+		if (Result.isFailure(versionProbe)) {
+			const error = versionProbe.failure;
+			return {
+				provider: input.provider,
+				status: "error" as const,
+				available: false,
+				authStatus: "unknown" as const,
+				checkedAt,
+				message: isCommandMissingCause(input.binary, error)
+					? input.unavailableMessage
+					: `Failed to execute ${input.binary} CLI health check: ${error instanceof Error ? error.message : String(error)}.`,
+			} satisfies ServerProviderStatus;
+		}
+
+		if (Option.isNone(versionProbe.success)) {
+			return {
+				provider: input.provider,
+				status: "error" as const,
+				available: false,
+				authStatus: "unknown" as const,
+				checkedAt,
+				message: `${input.binary} CLI is installed but failed to run. Timed out while running command.`,
+			} satisfies ServerProviderStatus;
+		}
+
+		const version = versionProbe.success.value;
+		if (version.code !== 0) {
+			const detail = detailFromResult(version);
+			return {
+				provider: input.provider,
+				status: "error" as const,
+				available: false,
+				authStatus: "unknown" as const,
+				checkedAt,
+				message: detail
+					? `${input.binary} CLI is installed but failed to run. ${detail}`
+					: `${input.binary} CLI is installed but failed to run.`,
+			} satisfies ServerProviderStatus;
+		}
+
+		const parsedVersion = input.parseVersion(
+			`${version.stdout}\n${version.stderr}`,
+		);
+		if (parsedVersion !== null && !input.isVersionSupported(parsedVersion)) {
+			return {
+				provider: input.provider,
+				status: "error" as const,
+				available: false,
+				authStatus: "unknown" as const,
+				checkedAt,
+				message: input.formatUpgradeMessage(parsedVersion),
+			} satisfies ServerProviderStatus;
+		}
+
+		if (parsedVersion === null) {
+			return {
+				provider: input.provider,
+				status: "warning" as const,
+				available: true,
+				authStatus: "unknown" as const,
+				checkedAt,
+				message: input.formatUpgradeMessage(null),
+			} satisfies ServerProviderStatus;
+		}
+
+		return {
+			provider: input.provider,
+			status: "ready" as const,
+			available: true,
+			authStatus: "unknown" as const,
+			checkedAt,
+		} satisfies ServerProviderStatus;
+	});
+}
+
 // ── Health check ────────────────────────────────────────────────────
 
 export const checkCodexProviderStatus: Effect.Effect<
@@ -226,7 +328,7 @@ export const checkCodexProviderStatus: Effect.Effect<
 	const checkedAt = new Date().toISOString();
 
 	// Probe 1: `codex --version` — is the CLI reachable?
-	const versionProbe = yield* runCodexCommand(["--version"]).pipe(
+	const versionProbe = yield* runCommand("codex", ["--version"]).pipe(
 		Effect.timeoutOption(DEFAULT_TIMEOUT_MS),
 		Effect.result,
 	);
@@ -239,7 +341,7 @@ export const checkCodexProviderStatus: Effect.Effect<
 			available: false,
 			authStatus: "unknown" as const,
 			checkedAt,
-			message: isCommandMissingCause(error)
+			message: isCommandMissingCause("codex", error)
 				? "Codex CLI (`codex`) is not installed or not on PATH."
 				: `Failed to execute Codex CLI health check: ${error instanceof Error ? error.message : String(error)}.`,
 		};
@@ -287,7 +389,7 @@ export const checkCodexProviderStatus: Effect.Effect<
 	}
 
 	// Probe 2: `codex login status` — is the user authenticated?
-	const authProbe = yield* runCodexCommand(["login", "status"]).pipe(
+	const authProbe = yield* runCommand("codex", ["login", "status"]).pipe(
 		Effect.timeoutOption(DEFAULT_TIMEOUT_MS),
 		Effect.result,
 	);
@@ -330,23 +432,93 @@ export const checkCodexProviderStatus: Effect.Effect<
 	} satisfies ServerProviderStatus;
 });
 
-const PLACEHOLDER_STATUS: ServerProviderStatus = {
-	provider: CODEX_PROVIDER,
-	status: "warning",
-	available: false,
-	authStatus: "unknown",
-	checkedAt: new Date().toISOString(),
-	message: "Checking Codex CLI availability...",
-};
+export const checkGeminiProviderStatus = makeVersionOnlyProviderStatusChecker({
+	provider: GEMINI_PROVIDER,
+	binary: "gemini",
+	unavailableMessage: "Gemini CLI (`gemini`) is not installed or not on PATH.",
+	parseVersion: parseGeminiCliVersion,
+	isVersionSupported: isGeminiCliVersionSupported,
+	formatUpgradeMessage: formatGeminiCliUpgradeMessage,
+});
 
-const ERROR_FALLBACK_STATUS: ServerProviderStatus = {
-	provider: CODEX_PROVIDER,
-	status: "error",
-	available: false,
-	authStatus: "unknown",
-	checkedAt: new Date().toISOString(),
-	message: "Failed to check Codex CLI status.",
-};
+export const checkClaudeCodeProviderStatus =
+	makeVersionOnlyProviderStatusChecker({
+		provider: CLAUDE_CODE_PROVIDER,
+		binary: "claude",
+		unavailableMessage:
+			"Claude Code CLI (`claude`) is not installed or not on PATH.",
+		parseVersion: parseClaudeCodeCliVersion,
+		isVersionSupported: isClaudeCodeCliVersionSupported,
+		formatUpgradeMessage: formatClaudeCodeCliUpgradeMessage,
+	});
+
+const PLACEHOLDER_STATUSES = [
+	{
+		provider: CODEX_PROVIDER,
+		status: "warning",
+		available: false,
+		authStatus: "unknown",
+		checkedAt: new Date().toISOString(),
+		message: "Checking Codex CLI availability...",
+	},
+	{
+		provider: GEMINI_PROVIDER,
+		status: "warning",
+		available: false,
+		authStatus: "unknown",
+		checkedAt: new Date().toISOString(),
+		message: "Checking Gemini CLI availability...",
+	},
+	{
+		provider: CLAUDE_CODE_PROVIDER,
+		status: "warning",
+		available: false,
+		authStatus: "unknown",
+		checkedAt: new Date().toISOString(),
+		message: "Checking Claude Code CLI availability...",
+	},
+] as const satisfies readonly [
+	ServerProviderStatus,
+	ServerProviderStatus,
+	ServerProviderStatus,
+];
+
+const ERROR_FALLBACK_STATUSES = [
+	{
+		provider: CODEX_PROVIDER,
+		status: "error",
+		available: false,
+		authStatus: "unknown",
+		checkedAt: new Date().toISOString(),
+		message: "Failed to check Codex CLI status.",
+	},
+	{
+		provider: GEMINI_PROVIDER,
+		status: "error",
+		available: false,
+		authStatus: "unknown",
+		checkedAt: new Date().toISOString(),
+		message: "Failed to check Gemini CLI status.",
+	},
+	{
+		provider: CLAUDE_CODE_PROVIDER,
+		status: "error",
+		available: false,
+		authStatus: "unknown",
+		checkedAt: new Date().toISOString(),
+		message: "Failed to check Claude Code CLI status.",
+	},
+] as const satisfies readonly [
+	ServerProviderStatus,
+	ServerProviderStatus,
+	ServerProviderStatus,
+];
+
+const [
+	CODEX_ERROR_FALLBACK_STATUS,
+	GEMINI_ERROR_FALLBACK_STATUS,
+	CLAUDE_CODE_ERROR_FALLBACK_STATUS,
+] = ERROR_FALLBACK_STATUSES;
 
 // ── Layer ───────────────────────────────────────────────────────────
 
@@ -354,34 +526,54 @@ export const ProviderHealthLive = Layer.effect(
 	ProviderHealth,
 	Effect.gen(function* () {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-		let cachedStatuses: ReadonlyArray<ServerProviderStatus> = [
-			PLACEHOLDER_STATUS,
-		];
+		let cachedStatuses: ReadonlyArray<ServerProviderStatus> =
+			PLACEHOLDER_STATUSES;
+		let ready = false;
 		const readyListeners: Array<
 			(statuses: ReadonlyArray<ServerProviderStatus>) => void
 		> = [];
 
 		const notifyReady = (statuses: ReadonlyArray<ServerProviderStatus>) => {
+			ready = true;
 			cachedStatuses = statuses;
 			for (const cb of readyListeners) cb(statuses);
 			readyListeners.length = 0;
 		};
 
 		// Run health checks in the background so they don't block server startup.
-		checkCodexProviderStatus
-			.pipe(
-				Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-				Effect.runPromise,
-			)
-			.then((status) => notifyReady([status]))
-			.catch(() => notifyReady([ERROR_FALLBACK_STATUS]));
+		const runCheck = (
+			check: Effect.Effect<
+				ServerProviderStatus,
+				never,
+				ChildProcessSpawner.ChildProcessSpawner
+			>,
+			fallback: ServerProviderStatus,
+		) =>
+			check
+				.pipe(
+					Effect.provideService(
+						ChildProcessSpawner.ChildProcessSpawner,
+						spawner,
+					),
+					Effect.runPromise,
+				)
+				.catch(() => fallback);
+
+		Promise.all([
+			runCheck(checkCodexProviderStatus, CODEX_ERROR_FALLBACK_STATUS),
+			runCheck(checkGeminiProviderStatus, GEMINI_ERROR_FALLBACK_STATUS),
+			runCheck(
+				checkClaudeCodeProviderStatus,
+				CLAUDE_CODE_ERROR_FALLBACK_STATUS,
+			),
+		])
+			.then((statuses) => notifyReady(statuses))
+			.catch(() => notifyReady(ERROR_FALLBACK_STATUSES));
 
 		return {
 			getStatuses: Effect.sync(() => cachedStatuses),
 			onReady: (cb) => {
-				// If we already have a non-placeholder result, call immediately.
-				const current = cachedStatuses[0];
-				if (current && current.message !== PLACEHOLDER_STATUS.message) {
+				if (ready) {
 					cb(cachedStatuses);
 				} else {
 					readyListeners.push(cb);

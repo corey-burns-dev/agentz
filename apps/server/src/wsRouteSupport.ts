@@ -41,7 +41,7 @@ function toPosixRelativePath(input: string): string {
 	return input.replaceAll("\\", "/");
 }
 
-export function resolveWorkspaceWritePath(params: {
+export function resolveWorkspaceFilePath(params: {
 	workspaceRoot: string;
 	relativePath: string;
 	path: Path.Path;

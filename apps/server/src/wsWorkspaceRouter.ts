@@ -9,7 +9,7 @@ import type { OpenShape } from "./open";
 import { searchWorkspaceEntries } from "./workspaceEntries";
 import {
 	RouteRequestError,
-	resolveWorkspaceWritePath,
+	resolveWorkspaceFilePath,
 	stripRequestTag,
 	toRouteRequestError,
 	type WorkspaceRouteContext,
@@ -42,6 +42,53 @@ export function createWorkspaceRouter(
 				});
 			}
 
+			case WS_METHODS.projectsReadFile:
+				return Effect.gen(function* () {
+					const body = stripRequestTag(
+						request.body as Extract<
+							WebSocketRequest["body"],
+							{ _tag: typeof WS_METHODS.projectsReadFile }
+						>,
+					);
+					const target = yield* resolveWorkspaceFilePath({
+						workspaceRoot: body.cwd,
+						relativePath: body.relativePath,
+						path: context.path,
+					});
+					const exists = yield* context.fileSystem
+						.exists(target.absolutePath)
+						.pipe(
+							Effect.mapError(
+								(cause) =>
+									new RouteRequestError({
+										message: `Failed to check workspace file: ${String(cause)}`,
+									}),
+							),
+						);
+					if (!exists) {
+						return {
+							relativePath: target.relativePath,
+							exists: false,
+							contents: null,
+						};
+					}
+					const contents = yield* context.fileSystem
+						.readFileString(target.absolutePath)
+						.pipe(
+							Effect.mapError(
+								(cause) =>
+									new RouteRequestError({
+										message: `Failed to read workspace file: ${String(cause)}`,
+									}),
+							),
+						);
+					return {
+						relativePath: target.relativePath,
+						exists: true,
+						contents,
+					};
+				});
+
 			case WS_METHODS.projectsWriteFile:
 				return Effect.gen(function* () {
 					const body = stripRequestTag(
@@ -50,7 +97,7 @@ export function createWorkspaceRouter(
 							{ _tag: typeof WS_METHODS.projectsWriteFile }
 						>,
 					);
-					const target = yield* resolveWorkspaceWritePath({
+					const target = yield* resolveWorkspaceFilePath({
 						workspaceRoot: body.cwd,
 						relativePath: body.relativePath,
 						path: context.path,
