@@ -48,7 +48,6 @@ import { makeSqlitePersistenceLive, SqlitePersistenceMemory } from "./persistenc
 import { ProviderHealth, type ProviderHealthShape } from "./provider/Services/ProviderHealth";
 import { ProviderService, type ProviderServiceShape } from "./provider/Services/ProviderService";
 import { makeServerProviderLayer, makeServerRuntimeServicesLayer } from "./serverLayers";
-import { AnalyticsService } from "./telemetry/Services/AnalyticsService.ts";
 import { TerminalManager, type TerminalManagerShape } from "./terminal/Services/Manager";
 import { createServer } from "./wsServer";
 
@@ -451,7 +450,6 @@ describe("WebSocket Server", () => {
       Layer.provideMerge(providerHealthLayer),
       Layer.provideMerge(openLayer),
       Layer.provideMerge(serverConfigLayer),
-      Layer.provideMerge(AnalyticsService.layerTest),
       Layer.provideMerge(NodeServices.layer),
     );
     const runtimeServices = await Effect.runPromise(

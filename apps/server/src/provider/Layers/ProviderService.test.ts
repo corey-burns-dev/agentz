@@ -28,7 +28,6 @@ import {
   SqlitePersistenceMemory,
 } from "../../persistence/Layers/Sqlite.ts";
 import { ProviderSessionRuntimeRepository } from "../../persistence/Services/ProviderSessionRuntime.ts";
-import { AnalyticsService } from "../../telemetry/Services/AnalyticsService.ts";
 import {
   type ProviderAdapterError,
   ProviderAdapterSessionNotFoundError,
@@ -236,10 +235,9 @@ function makeProviderServiceLayer() {
       makeProviderServiceLive().pipe(
         Layer.provide(providerAdapterLayer),
         Layer.provide(directoryLayer),
-        Layer.provideMerge(AnalyticsService.layerTest),
+        Layer.provide(directoryLayer),
       ),
       directoryLayer,
-
       runtimeRepositoryLayer,
       NodeServices.layer,
     ),
@@ -278,7 +276,6 @@ function makeMultiProviderServiceLayer() {
       makeProviderServiceLive().pipe(
         Layer.provide(providerAdapterLayer),
         Layer.provide(directoryLayer),
-        Layer.provideMerge(AnalyticsService.layerTest),
       ),
       directoryLayer,
       runtimeRepositoryLayer,
@@ -357,7 +354,6 @@ it.effect("ProviderServiceLive keeps persisted resumable sessions on startup", (
     const providerLayer = makeProviderServiceLive().pipe(
       Layer.provide(Layer.succeed(ProviderAdapterRegistry, registry)),
       Layer.provide(directoryLayer),
-      Layer.provide(AnalyticsService.layerTest),
     );
 
     yield* Effect.gen(function* () {
@@ -418,7 +414,6 @@ it.effect(
       const firstProviderLayer = makeProviderServiceLive().pipe(
         Layer.provide(Layer.succeed(ProviderAdapterRegistry, firstRegistry)),
         Layer.provide(firstDirectoryLayer),
-        Layer.provide(AnalyticsService.layerTest),
       );
 
       const startedSession = yield* Effect.gen(function* () {
@@ -458,7 +453,6 @@ it.effect(
       const secondProviderLayer = makeProviderServiceLive().pipe(
         Layer.provide(Layer.succeed(ProviderAdapterRegistry, secondRegistry)),
         Layer.provide(secondDirectoryLayer),
-        Layer.provide(AnalyticsService.layerTest),
       );
 
       secondCodex.startSession.mockClear();

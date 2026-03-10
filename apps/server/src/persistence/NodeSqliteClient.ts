@@ -100,17 +100,9 @@ const makeWithDatabase = (
           statement.setReadBigInts(Boolean(ServiceMap.get(fiber.services, Client.SafeIntegers)));
           try {
             if (hasRows(statement)) {
-              return Effect.succeed(
-                statement.all(
-                  // biome-ignore lint/suspicious/noExplicitAny: SQLInputValue[] not exported from node:sqlite
-                  ...(params as any),
-                ) as ReadonlyArray<unknown>,
-              );
+              return Effect.succeed(statement.all(...(params as any)) as ReadonlyArray<unknown>);
             }
-            const result = statement.run(
-              // biome-ignore lint/suspicious/noExplicitAny: SQLInputValue[] not exported from node:sqlite
-              ...(params as any),
-            );
+            const result = statement.run(...(params as any));
             return Effect.succeed(raw ? (result as unknown as ReadonlyArray<unknown>) : []);
           } catch (cause) {
             return Effect.fail(new SqlError({ cause, message: "Failed to execute statement" }));
@@ -128,15 +120,11 @@ const makeWithDatabase = (
               try: () => {
                 if (hasRows(statement)) {
                   statement.setReturnArrays(true);
-                  return statement.all(
-                    // biome-ignore lint/suspicious/noExplicitAny: SQLInputValue[] not exported from node:sqlite
-                    ...(params as any),
-                  ) as unknown as ReadonlyArray<ReadonlyArray<unknown>>;
+                  return statement.all(...(params as any)) as unknown as ReadonlyArray<
+                    ReadonlyArray<unknown>
+                  >;
                 }
-                statement.run(
-                  // biome-ignore lint/suspicious/noExplicitAny: SQLInputValue[] not exported from node:sqlite
-                  ...(params as any),
-                );
+                statement.run(...(params as any));
                 return [];
               },
               catch: (cause) => new SqlError({ cause, message: "Failed to execute statement" }),

@@ -64,9 +64,10 @@ export function useImageAttachments(params: {
 
   // Revoke all blob URLs on unmount.
   useEffect(() => {
+    const optimisticUserMessages = optimisticUserMessagesRef.current;
     return () => {
       clearAttachmentPreviewHandoffs();
-      for (const message of optimisticUserMessagesRef.current) {
+      for (const message of optimisticUserMessages) {
         revokeUserMessagePreviewUrls(message);
       }
     };

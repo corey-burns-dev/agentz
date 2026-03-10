@@ -235,7 +235,7 @@ async function showOsNotification(
     tag: `thread:${String(context.threadId)}`,
   });
 
-  notification.onclick = () => {
+  notification.addEventListener("click", () => {
     try {
       window.focus();
     } catch {
@@ -247,7 +247,7 @@ async function showOsNotification(
       // Ignore navigation errors.
     }
     notification.close();
-  };
+  });
 }
 
 let audioContext: AudioContext | null = null;

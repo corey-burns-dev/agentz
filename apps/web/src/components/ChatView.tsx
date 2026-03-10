@@ -394,7 +394,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     markThreadVisited,
   ]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run on active thread change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setExpandedWorkGroups({});
     if (planSidebarOpenOnNextThreadRef.current) {
@@ -521,11 +521,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const implementationModelOptionsForDispatch = useMemo(() => {
     if (implementationProvider !== "codex") return undefined;
     const defaultEffort = getDefaultReasoningEffort(implementationProvider);
-    const codexOptions = {
-      ...(implementationReasoningOptions.length > 0 && defaultEffort
+    const codexOptions =
+      implementationReasoningOptions.length > 0 && defaultEffort
         ? { reasoningEffort: defaultEffort }
-        : {}),
-    };
+        : {};
     return Object.keys(codexOptions).length > 0 ? { codex: codexOptions } : undefined;
   }, [implementationProvider, implementationReasoningOptions.length]);
   const implementationModelForPickerWithCustomFallback = useMemo(() => {
@@ -628,12 +627,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
   // When a proposed plan appears, default implementation-thread provider/model to
   // the current thread so "Implement in new thread" matches existing behavior until
   // the user changes it in the plan sidebar.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only re-init when proposed plan identity changes
   useEffect(() => {
     if (activeProposedPlan?.turnId == null) return;
     setImplementationProvider(selectedProvider);
     setImplementationModel(selectedModel);
-  }, [activeProposedPlan?.turnId]);
+  }, [activeProposedPlan?.turnId, selectedModel, selectedProvider]);
 
   const activePlan = useMemo(
     () => deriveActivePlanState(threadActivities, activeLatestTurn?.turnId ?? undefined),
@@ -2131,7 +2129,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     setActivePendingUserInputQuestionIndex(Math.max(activePendingProgress.questionIndex - 1, 0));
   }, [activePendingProgress, setActivePendingUserInputQuestionIndex]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: shouldAutoScrollRef is a stable ref object
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const onSubmitPlanFollowUp = useCallback(
     async ({
       text,
@@ -2250,6 +2248,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       setComposerDraftInteractionMode,
       setThreadError,
       settings.enableAssistantStreaming,
+      shouldAutoScrollRef,
     ],
   );
 

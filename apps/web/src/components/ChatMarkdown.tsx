@@ -220,7 +220,7 @@ function SuspenseShikiCodeBlock({
   return (
     <div
       className="chat-markdown-shiki"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output is sanitized and language-scoped
+      // eslint-disable-next-line react/no-dangerously-set-inner-html
       dangerouslySetInnerHTML={{ __html: highlightedHtml }}
     />
   );

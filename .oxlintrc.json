@@ -7,13 +7,44 @@
     "perf": "warn"
   },
   "rules": {
-    "react-in-jsx-scope": "off",
+    "react/react-in-jsx-scope": "off",
     "eslint/no-shadow": "off",
-    "eslint/no-await-in-loop": "off"
+    "eslint/no-await-in-loop": "off",
+    "oxc/no-map-spread": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/require-module-specifiers": "off",
+    "unicorn/no-useless-spread": "off",
+    "react/jsx-no-target-blank": "off",
+    "typescript/no-explicit-any": "off"
   },
   "env": {
+    "browser": true,
+    "node": true,
     "builtin": true
   },
-  "globals": {},
-  "ignorePatterns": ["**/dist", "**/node_modules", "**/target", "bun.lock"]
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/integration/**/*.ts"
+      ],
+      "env": { "jest": true },
+      "plugins": ["vitest"]
+    }
+  ],
+  "ignorePatterns": [
+    "**/dist",
+    "**/node_modules",
+    "**/target",
+    "**/build",
+    "**/.next",
+    "**/.astro",
+    "**/.turbo",
+    "**/.vercel",
+    "**/coverage",
+    "bun.lock"
+  ]
 }

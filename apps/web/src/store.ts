@@ -294,13 +294,13 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
     });
 
   // Sort projects by latest thread update descending, falling back to project updatedAt
-  const projects = [...mappedProjects].sort((a, b) => {
+  const projects = mappedProjects.toSorted((a, b) => {
     const aLatestThread = threads
       .filter((t) => t.projectId === a.id)
-      .sort((t1, t2) => t2.createdAt.localeCompare(t1.createdAt))[0];
+      .toSorted((t1, t2) => t2.createdAt.localeCompare(t1.createdAt))[0];
     const bLatestThread = threads
       .filter((t) => t.projectId === b.id)
-      .sort((t1, t2) => t2.createdAt.localeCompare(t1.createdAt))[0];
+      .toSorted((t1, t2) => t2.createdAt.localeCompare(t1.createdAt))[0];
 
     const aTime = aLatestThread?.createdAt ?? a.updatedAt;
     const bTime = bLatestThread?.createdAt ?? b.updatedAt;

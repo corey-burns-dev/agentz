@@ -119,7 +119,7 @@ export function killChildTree(child: ChildProcessWithoutNullStreams): void {
 
 // ── Stderr classification ──────────────────────────────────────────────
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ANSI escape sequence match
+// eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_REGEX = /\x1b\[[0-9;]*m/g;
 
 const BENIGN_STDERR_PATTERNS = [

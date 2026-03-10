@@ -782,7 +782,7 @@ export function ComposerArea(props: ComposerAreaProps) {
     } else {
       speech.start();
     }
-  }, [speech.start, speech.status, speech.stop]);
+  }, [speech]);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   return (

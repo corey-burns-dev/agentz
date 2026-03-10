@@ -9,7 +9,6 @@ import {
   FolderTreeIcon,
   GitBranchIcon,
   GitPullRequestIcon,
-  PanelRightCloseIcon,
   PlusIcon,
   SearchIcon,
 } from "lucide-react";
@@ -355,9 +354,7 @@ function GitSummaryCard(props: {
 const ProjectDock = memo(function ProjectDock({
   activeTab,
   gitCwd,
-  onClose,
   onTabChange,
-  project,
   workspaceCwd,
 }: ProjectDockProps) {
   const [fileFilter, setFileFilter] = useState("");

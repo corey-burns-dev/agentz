@@ -64,7 +64,6 @@ import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnap
 import { tryHandleProjectFaviconRequest } from "./projectFaviconRoute";
 import { ProviderHealth } from "./provider/Services/ProviderHealth";
 import type { ProviderService } from "./provider/Services/ProviderService";
-import type { AnalyticsService } from "./telemetry/Services/AnalyticsService.ts";
 import { TerminalManager } from "./terminal/Services/Manager.ts";
 import { createGitRouter } from "./wsGitRouter";
 import { createOrchestrationRouter } from "./wsOrchestrationRouter";
@@ -168,8 +167,7 @@ export type ServerRuntimeServices =
   | GitCore
   | TerminalManager
   | Keybindings
-  | Open
-  | AnalyticsService;
+  | Open;
 
 export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycleError>()(
   "ServerLifecycleError",
@@ -572,7 +570,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   const closeAllClients = Ref.get(clients).pipe(
     Effect.flatMap(
       // Effect.forEach expects callback to return Effect; rule targets Array.forEach
-      // biome-ignore lint/suspicious/useIterableCallbackReturn: Effect.forEach, not Array.forEach
+      // eslint-disable-next-line array-callback-return
       Effect.forEach((client) =>
         Effect.sync(() => {
           client.close();

@@ -131,4 +131,6 @@ npx agents
 
 ## Notes
 
+- **No telemetry**: Agents does not collect, buffer, or send any telemetry or analytics data. There are no PostHog/SaaS analytics integrations in the server, web app, or desktop shells. Older versions may have created an anonymous identifier file under the Agents state directory (for example under `~/.agents/` or the configured `AGENTS_STATE_DIR`); these files are now unused and can be safely deleted.
+
 We are very early in this project. Expect bugs.

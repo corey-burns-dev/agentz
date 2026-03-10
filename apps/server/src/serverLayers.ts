@@ -33,7 +33,6 @@ import { ProviderAdapterRegistryLive } from "./provider/Layers/ProviderAdapterRe
 import { makeProviderServiceLive } from "./provider/Layers/ProviderService";
 import { ProviderSessionDirectoryLive } from "./provider/Layers/ProviderSessionDirectory";
 import type { ProviderService } from "./provider/Services/ProviderService";
-import type { AnalyticsService } from "./telemetry/Services/AnalyticsService";
 import { BunPtyAdapterLive } from "./terminal/Layers/BunPTY";
 import { TerminalManagerLive } from "./terminal/Layers/Manager";
 import { NodePtyAdapterLive } from "./terminal/Layers/NodePTY";
@@ -41,7 +40,7 @@ import { NodePtyAdapterLive } from "./terminal/Layers/NodePTY";
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
   ProviderUnsupportedError,
-  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem | AnalyticsService
+  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem
 > {
   return Effect.gen(function* () {
     const { stateDir } = yield* ServerConfig;

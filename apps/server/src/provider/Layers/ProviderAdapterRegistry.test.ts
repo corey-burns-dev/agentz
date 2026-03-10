@@ -59,7 +59,7 @@ layer("ProviderAdapterRegistryLive", (it) => {
       assert.equal(codex, fakeCodexAdapter);
 
       const providers = yield* registry.listProviders();
-      assert.deepEqual([...providers].sort(), ["claude-code", "codex", "gemini"].sort());
+      assert.deepEqual(providers.toSorted(), ["claude-code", "codex", "gemini"].toSorted());
     }),
   );
 

@@ -1,3 +1,3 @@
 # TODO
 
-- [ ] fix the sidebar, minimizations
+- [x] fix the sidebar, minimizations

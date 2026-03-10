@@ -456,9 +456,7 @@ function mapToRuntimeEvents(
         ...runtimeEventBase(event, canonicalThreadId),
         turnId,
         type: "turn.started",
-        payload: {
-          ...(asString(turn?.model) ? { model: asString(turn?.model) } : {}),
-        },
+        payload: asString(turn?.model) ? { model: asString(turn?.model) } : {},
       },
     ];
   }

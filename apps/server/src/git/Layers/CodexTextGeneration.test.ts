@@ -63,10 +63,10 @@ function makeFakeCodexBinary(dir: string) {
         "fi",
         'if [ -n "$output_path" ]; then',
         // Shell variable substitution, not a template literal
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: shell script
+        // eslint-disable-next-line no-template-curly-in-string
         '  node -e \'const fs=require("node:fs"); const value=process.argv[2] ?? ""; fs.writeFileSync(process.argv[1], Buffer.from(value, "base64"));\' "$output_path" "${AGENTS_FAKE_CODEX_OUTPUT_B64:-e30=}"',
         "fi",
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: shell script
+        // eslint-disable-next-line no-template-curly-in-string
         'exit "${AGENTS_FAKE_CODEX_EXIT_CODE:-0}"',
         "",
       ].join("\n"),
