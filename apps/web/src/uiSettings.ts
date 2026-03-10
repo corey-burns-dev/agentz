@@ -42,6 +42,13 @@ export const PROJECT_FAVICON_SIZE_OPTIONS = [
 export type ProjectFaviconDisplaySize =
 	(typeof PROJECT_FAVICON_SIZE_OPTIONS)[number];
 
+export const SIDEBAR_SPACING_OPTIONS = [
+	"compact",
+	"default",
+	"spacious",
+] as const;
+export type SidebarSpacingOption = (typeof SIDEBAR_SPACING_OPTIONS)[number];
+
 export type ResolvedTheme = "light" | "dark";
 
 const LEGACY_THEME_PRESETS = [
@@ -98,6 +105,11 @@ const UISettingsSchema = Schema.Struct({
 			Option.some<ProjectFaviconDisplaySize>("medium"),
 		),
 	),
+	sidebarSpacing: Schema.Literals(SIDEBAR_SPACING_OPTIONS).pipe(
+		Schema.withConstructorDefault(() =>
+			Option.some<SidebarSpacingOption>("default"),
+		),
+	),
 });
 
 export type UISettings = typeof UISettingsSchema.Type;
@@ -107,6 +119,8 @@ const DEFAULT_UI_SETTINGS = UISettingsSchema.makeUnsafe({});
 let listeners: Array<() => void> = [];
 let cachedRawSettings: string | null | undefined;
 let cachedSnapshot: UISettings = DEFAULT_UI_SETTINGS;
+let listenerRefCount = 0;
+let registeredMediaQuery: MediaQueryList | null = null;
 
 function emitChange(): void {
 	for (const listener of listeners) {
@@ -291,42 +305,46 @@ function applyResolvedThemeClass(
 	}
 }
 
+function handleMediaChange() {
+	const settings = getUISettingsSnapshot();
+	if (settings.themeMode !== "system") return;
+	applyUISettings(settings, true);
+	emitChange();
+}
+
+function handleStorageChange(event: StorageEvent) {
+	if (
+		event.key === UI_SETTINGS_STORAGE_KEY ||
+		event.key === LEGACY_THEME_STORAGE_KEY
+	) {
+		const settings = getUISettingsSnapshot();
+		applyUISettings(settings);
+		emitChange();
+	}
+}
+
 function subscribe(listener: () => void): () => void {
 	listeners.push(listener);
 
-	if (typeof window === "undefined") {
-		return () => {
-			listeners = listeners.filter((entry) => entry !== listener);
-		};
+	if (typeof window !== "undefined") {
+		if (listenerRefCount === 0) {
+			registeredMediaQuery = window.matchMedia(MEDIA_QUERY);
+			registeredMediaQuery.addEventListener("change", handleMediaChange);
+			window.addEventListener("storage", handleStorageChange);
+		}
+		listenerRefCount++;
 	}
 
-	const mediaQuery = window.matchMedia(MEDIA_QUERY);
-	const onMediaChange = () => {
-		const settings = getUISettingsSnapshot();
-		if (settings.themeMode !== "system") {
-			return;
-		}
-		applyUISettings(settings, true);
-		emitChange();
-	};
-
-	const onStorage = (event: StorageEvent) => {
-		if (
-			event.key === UI_SETTINGS_STORAGE_KEY ||
-			event.key === LEGACY_THEME_STORAGE_KEY
-		) {
-			const settings = getUISettingsSnapshot();
-			applyUISettings(settings);
-			emitChange();
-		}
-	};
-
-	mediaQuery.addEventListener("change", onMediaChange);
-	window.addEventListener("storage", onStorage);
 	return () => {
 		listeners = listeners.filter((entry) => entry !== listener);
-		mediaQuery.removeEventListener("change", onMediaChange);
-		window.removeEventListener("storage", onStorage);
+		if (typeof window !== "undefined") {
+			listenerRefCount--;
+			if (listenerRefCount === 0) {
+				registeredMediaQuery?.removeEventListener("change", handleMediaChange);
+				window.removeEventListener("storage", handleStorageChange);
+				registeredMediaQuery = null;
+			}
+		}
 	};
 }
 

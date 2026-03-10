@@ -49,19 +49,23 @@ describe("projectFaviconSettings", () => {
 		const {
 			clearProjectFaviconOverrideForKey,
 			getProjectFaviconOverrideForKey,
+			getProjectFaviconSetAtForKey,
 			setProjectFaviconOverrideForKey,
 		} = await import("./projectFaviconSettings");
 
 		setProjectFaviconOverrideForKey("/repo", "assets/icon.svg");
 		expect(getProjectFaviconOverrideForKey("/repo")).toBe("assets/icon.svg");
+		expect(getProjectFaviconSetAtForKey("/repo")).toBeGreaterThan(0);
 		expect(storage.get("agents:project-favicons:v1")).toContain(
 			"assets/icon.svg",
 		);
 
 		clearProjectFaviconOverrideForKey("/repo");
 		expect(getProjectFaviconOverrideForKey("/repo")).toBeNull();
-		expect(storage.get("agents:project-favicons:v1")).toBe(
-			JSON.stringify({ byProjectKey: {} }),
+		expect(getProjectFaviconSetAtForKey("/repo")).toBe(0);
+		const stored = JSON.parse(
+			storage.get("agents:project-favicons:v1") ?? "{}",
 		);
+		expect(stored).toMatchObject({ byProjectKey: {} });
 	});
 });

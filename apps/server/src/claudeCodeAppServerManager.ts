@@ -63,6 +63,7 @@ import {
 	readResumeClaudeSessionId,
 	updateSession,
 } from "./claudeCodeAppServerSession";
+import { ProviderBusyError } from "./provider/providerBusyError";
 
 export type {
 	ClaudeCodeAppServerSendTurnInput,
@@ -213,7 +214,7 @@ export class ClaudeCodeAppServerManager extends EventEmitter<ClaudeCodeAppServer
 		const context = this.requireSession(input.threadId);
 
 		if (context.activeTurn) {
-			throw new Error("Claude Code session is already running a turn.");
+			throw new ProviderBusyError(input.threadId);
 		}
 
 		if (!input.input?.trim()) {

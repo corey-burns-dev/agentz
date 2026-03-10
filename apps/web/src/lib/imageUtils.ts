@@ -51,11 +51,28 @@ export function collectUserMessageBlobPreviewUrls(
 
 /**
  * Reads a File as a base64 data URL string.
+ * Pass an AbortSignal to cancel the read (e.g. when the component unmounts).
  */
-export function readFileAsDataUrl(file: File): Promise<string> {
+export function readFileAsDataUrl(
+	file: File,
+	signal?: AbortSignal,
+): Promise<string> {
 	return new Promise((resolve, reject) => {
+		if (signal?.aborted) {
+			reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+			return;
+		}
+
 		const reader = new FileReader();
+
+		const onAbort = () => {
+			reader.abort();
+			reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+		};
+		signal?.addEventListener("abort", onAbort, { once: true });
+
 		reader.addEventListener("load", () => {
+			signal?.removeEventListener("abort", onAbort);
 			if (typeof reader.result === "string") {
 				resolve(reader.result);
 				return;
@@ -63,6 +80,7 @@ export function readFileAsDataUrl(file: File): Promise<string> {
 			reject(new Error("Could not read image data."));
 		});
 		reader.addEventListener("error", () => {
+			signal?.removeEventListener("abort", onAbort);
 			reject(reader.error ?? new Error("Failed to read image."));
 		});
 		reader.readAsDataURL(file);

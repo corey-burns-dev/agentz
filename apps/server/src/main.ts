@@ -7,6 +7,7 @@
  * @module CliConfig
  */
 
+import * as nodePath from "node:path";
 import { NetService } from "@agents/shared/Net";
 import {
 	Config,
@@ -217,10 +218,21 @@ const ServerConfigLive = (input: CliInput) =>
 				env.host ??
 				(mode === "desktop" ? "127.0.0.1" : undefined);
 
+			const serverPackageRoot = (() => {
+				const entry = process.argv[1];
+				if (!entry) return undefined;
+				const dir = nodePath.dirname(entry);
+				const base = nodePath.basename(dir);
+				const root =
+					base === "src" || base === "dist" ? nodePath.dirname(dir) : dir;
+				return nodePath.resolve(root);
+			})();
+
 			const config: ServerConfigShape = {
 				mode,
 				port,
 				cwd: cliConfig.cwd,
+				serverPackageRoot,
 				keybindingsConfigPath,
 				host,
 				stateDir,

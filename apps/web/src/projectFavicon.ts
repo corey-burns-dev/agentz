@@ -23,6 +23,8 @@ function getServerHttpOrigin(): string {
 export function buildProjectFaviconUrl(input: {
 	cwd: string;
 	relativePath?: string | null;
+	/** Cache-buster for override URLs so the browser fetches fresh after picking a new favicon. */
+	cacheBust?: number;
 }): string {
 	const baseOrigin =
 		getServerHttpOrigin() ||
@@ -36,6 +38,9 @@ export function buildProjectFaviconUrl(input: {
 			"relativePath",
 			normalizeProjectRelativePath(input.relativePath),
 		);
+	}
+	if (input.cacheBust != null && input.cacheBust > 0) {
+		url.searchParams.set("t", String(input.cacheBust));
 	}
 	return url.toString();
 }

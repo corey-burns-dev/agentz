@@ -19,7 +19,8 @@ const FAVICON_MIME_TYPES: Record<string, string> = {
 
 const FALLBACK_FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6b728080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-fallback="project-favicon"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg>`;
 
-const NESTED_APP_DIRECTORIES = ["frontend", "client", "web", "ui"];
+const NESTED_APP_DIRECTORIES = ["frontend", "client", "web", "ui", "backend"];
+const MONOREPO_APP_CONTAINERS = ["apps", "packages"];
 const RECURSIVE_SCAN_IGNORED_DIRECTORIES = new Set([
 	".git",
 	".cache",
@@ -36,6 +37,7 @@ const faviconResolutionCache = new Map<
 	string,
 	{ resolvedAt: number; filePath: string | null }
 >();
+const faviconResolutionInProgress = new Map<string, Promise<string | null>>();
 
 const FAVICON_CANDIDATES = [
 	"favicon.svg",
@@ -44,6 +46,8 @@ const FAVICON_CANDIDATES = [
 	"public/favicon.svg",
 	"public/favicon.ico",
 	"public/favicon.png",
+	"public/logo.svg",
+	"public/logo.png",
 	"app/favicon.ico",
 	"app/favicon.png",
 	"app/icon.svg",
@@ -58,6 +62,10 @@ const FAVICON_CANDIDATES = [
 	"assets/icon.png",
 	"assets/logo.svg",
 	"assets/logo.png",
+	// Phoenix / Elixir
+	"priv/static/favicon.svg",
+	"priv/static/favicon.ico",
+	"priv/static/favicon.png",
 ];
 
 const ICON_SOURCE_FILES = [
@@ -85,13 +93,42 @@ function extractIconHref(source: string): string | null {
 	return null;
 }
 
-function buildAppRoots(projectCwd: string): string[] {
-	return [
+/** Normalize project cwd from the request to an absolute filesystem path. */
+function resolveProjectCwd(rawCwd: string): string {
+	const trimmed = rawCwd.trim();
+	const withoutFileUrl =
+		trimmed.startsWith("file://") || trimmed.startsWith("file:/")
+			? trimmed.replace(/^file:\/+/, "/")
+			: trimmed;
+	return path.resolve(withoutFileUrl);
+}
+
+async function buildAppRoots(projectCwd: string): Promise<string[]> {
+	const roots: string[] = [
 		projectCwd,
 		...NESTED_APP_DIRECTORIES.map((directory) =>
 			path.join(projectCwd, directory),
 		),
 	];
+
+	for (const container of MONOREPO_APP_CONTAINERS) {
+		const containerPath = path.join(projectCwd, container);
+		try {
+			const entries = await fs.readdir(containerPath, {
+				encoding: "utf8",
+				withFileTypes: true,
+			});
+			for (const entry of entries) {
+				if (entry.isDirectory() && entry.name && !entry.name.startsWith(".")) {
+					roots.push(path.join(containerPath, entry.name));
+				}
+			}
+		} catch {
+			// Ignore missing container dir or permission errors
+		}
+	}
+
+	return roots;
 }
 
 function isPathWithinProject(
@@ -159,7 +196,7 @@ async function resolveExistingFile(
 async function findWellKnownProjectFavicon(
 	projectCwd: string,
 ): Promise<string | null> {
-	for (const appRoot of buildAppRoots(projectCwd)) {
+	for (const appRoot of await buildAppRoots(projectCwd)) {
 		for (const candidate of FAVICON_CANDIDATES) {
 			const resolved = await resolveExistingFile(
 				projectCwd,
@@ -284,13 +321,25 @@ async function resolveProjectFavicon(
 		return cached.filePath;
 	}
 
-	const wellKnown = await findWellKnownProjectFavicon(projectCwd);
-	const filePath = wellKnown ?? (await findRecursiveProjectFavicon(projectCwd));
-	faviconResolutionCache.set(projectCwd, {
-		resolvedAt: Date.now(),
-		filePath,
-	});
-	return filePath;
+	// Deduplicate concurrent requests for the same cwd — return the same promise
+	// rather than kicking off N parallel filesystem scans.
+	const inProgress = faviconResolutionInProgress.get(projectCwd);
+	if (inProgress) return inProgress;
+
+	const promise = (async () => {
+		const wellKnown = await findWellKnownProjectFavicon(projectCwd);
+		const filePath =
+			wellKnown ?? (await findRecursiveProjectFavicon(projectCwd));
+		faviconResolutionCache.set(projectCwd, {
+			resolvedAt: Date.now(),
+			filePath,
+		});
+		return filePath;
+	})();
+
+	faviconResolutionInProgress.set(projectCwd, promise);
+	promise.finally(() => faviconResolutionInProgress.delete(projectCwd));
+	return promise;
 }
 
 async function serveFaviconFile(
@@ -319,12 +368,14 @@ async function handleProjectFaviconRequest(
 	url: URL,
 	res: http.ServerResponse,
 ): Promise<void> {
-	const projectCwd = url.searchParams.get("cwd");
-	if (!projectCwd) {
+	const rawCwd = url.searchParams.get("cwd");
+	if (!rawCwd) {
 		res.writeHead(400, { "Content-Type": "text/plain" });
 		res.end("Missing cwd parameter");
 		return;
 	}
+
+	const projectCwd = resolveProjectCwd(rawCwd);
 
 	const requestedRelativePath = url.searchParams.get("relativePath");
 	if (requestedRelativePath) {

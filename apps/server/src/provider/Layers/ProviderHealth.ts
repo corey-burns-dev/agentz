@@ -525,7 +525,6 @@ const [
 export const ProviderHealthLive = Layer.effect(
 	ProviderHealth,
 	Effect.gen(function* () {
-		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		let cachedStatuses: ReadonlyArray<ServerProviderStatus> =
 			PLACEHOLDER_STATUSES;
 		let ready = false;
@@ -536,7 +535,13 @@ export const ProviderHealthLive = Layer.effect(
 		const notifyReady = (statuses: ReadonlyArray<ServerProviderStatus>) => {
 			ready = true;
 			cachedStatuses = statuses;
-			for (const cb of readyListeners) cb(statuses);
+			for (const cb of readyListeners) {
+				try {
+					cb(statuses);
+				} catch (error) {
+					console.warn("[ProviderHealth] onReady callback threw", error);
+				}
+			}
 			readyListeners.length = 0;
 		};
 
@@ -548,27 +553,26 @@ export const ProviderHealthLive = Layer.effect(
 				ChildProcessSpawner.ChildProcessSpawner
 			>,
 			fallback: ServerProviderStatus,
-		) =>
-			check
-				.pipe(
-					Effect.provideService(
-						ChildProcessSpawner.ChildProcessSpawner,
-						spawner,
-					),
-					Effect.runPromise,
-				)
-				.catch(() => fallback);
+		) => check.pipe(Effect.catchCause(() => Effect.succeed(fallback)));
 
-		Promise.all([
-			runCheck(checkCodexProviderStatus, CODEX_ERROR_FALLBACK_STATUS),
-			runCheck(checkGeminiProviderStatus, GEMINI_ERROR_FALLBACK_STATUS),
-			runCheck(
-				checkClaudeCodeProviderStatus,
-				CLAUDE_CODE_ERROR_FALLBACK_STATUS,
+		yield* Effect.forkDetach(
+			Effect.all(
+				[
+					runCheck(checkCodexProviderStatus, CODEX_ERROR_FALLBACK_STATUS),
+					runCheck(checkGeminiProviderStatus, GEMINI_ERROR_FALLBACK_STATUS),
+					runCheck(
+						checkClaudeCodeProviderStatus,
+						CLAUDE_CODE_ERROR_FALLBACK_STATUS,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.tap((statuses) => Effect.sync(() => notifyReady(statuses))),
+				Effect.catchCause(() =>
+					Effect.sync(() => notifyReady(ERROR_FALLBACK_STATUSES)),
+				),
 			),
-		])
-			.then((statuses) => notifyReady(statuses))
-			.catch(() => notifyReady(ERROR_FALLBACK_STATUSES));
+		);
 
 		return {
 			getStatuses: Effect.sync(() => cachedStatuses),

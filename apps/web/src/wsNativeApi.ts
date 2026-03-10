@@ -53,8 +53,8 @@ export function onServerWelcome(
 	if (lastWelcome) {
 		try {
 			listener(lastWelcome);
-		} catch {
-			// Swallow listener errors
+		} catch (error) {
+			console.warn("[wsNativeApi] Welcome listener threw on replay", error);
 		}
 	}
 
@@ -75,8 +75,11 @@ export function onServerConfigUpdated(
 	if (lastServerConfigUpdated) {
 		try {
 			listener(lastServerConfigUpdated);
-		} catch {
-			// Swallow listener errors
+		} catch (error) {
+			console.warn(
+				"[wsNativeApi] ServerConfigUpdated listener threw on replay",
+				error,
+			);
 		}
 	}
 
@@ -118,8 +121,8 @@ export function createWsNativeApi(): NativeApi {
 		for (const listener of welcomeListeners) {
 			try {
 				listener(payload);
-			} catch {
-				// Swallow listener errors
+			} catch (error) {
+				console.warn("[wsNativeApi] Welcome listener threw", error);
 			}
 		}
 	});
@@ -130,8 +133,8 @@ export function createWsNativeApi(): NativeApi {
 		for (const listener of serverConfigUpdatedListeners) {
 			try {
 				listener(payload);
-			} catch {
-				// Swallow listener errors
+			} catch (error) {
+				console.warn("[wsNativeApi] ServerConfigUpdated listener threw", error);
 			}
 		}
 	});

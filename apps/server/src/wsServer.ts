@@ -206,6 +206,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 	const {
 		port,
 		cwd,
+		serverPackageRoot,
 		keybindingsConfigPath,
 		staticDir,
 		devUrl,
@@ -714,7 +715,14 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 			data: { issues: [], providers: statuses },
 		})
 			.pipe(Effect.runPromise)
-			.catch(() => {});
+			.catch((error) => {
+				logger.warn(
+					"failed to broadcast provider statuses after health check",
+					{
+						error,
+					},
+				);
+			});
 	});
 
 	yield* Scope.provide(orchestrationReactor.start, subscriptionsScope);
@@ -722,7 +730,12 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 	let welcomeBootstrapProjectId: ProjectId | undefined;
 	let welcomeBootstrapThreadId: ThreadId | undefined;
 
-	if (autoBootstrapProjectFromCwd) {
+	const cwdResolved = path.resolve(cwd);
+	const isCwdServerPackage =
+		serverPackageRoot !== undefined &&
+		path.resolve(serverPackageRoot) === cwdResolved;
+
+	if (autoBootstrapProjectFromCwd && !isCwdServerPackage) {
 		yield* Effect.gen(function* () {
 			const snapshot = yield* projectionReadModelQuery.getSnapshot();
 			const existingProject = snapshot.projects.find(
@@ -915,7 +928,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
 	});
 
 	wss.on("connection", (ws) => {
-		void runPromise(Ref.update(clients, (clients) => clients.add(ws)));
+		Effect.runSync(Ref.update(clients, (clients) => clients.add(ws)));
 
 		const segments = cwd.split(/[/\\]/).filter(Boolean);
 		const projectName = segments[segments.length - 1] ?? "project";

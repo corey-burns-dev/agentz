@@ -428,6 +428,7 @@ describe("WebSocket Server", () => {
 				SqlError.SqlError | MigrationError | PlatformError.PlatformError
 			>;
 			cwd?: string;
+			serverPackageRoot?: string;
 			autoBootstrapProjectFromCwd?: boolean;
 			logWebSocketEvents?: boolean;
 			devUrl?: string;
@@ -464,6 +465,7 @@ describe("WebSocket Server", () => {
 			port: 0,
 			host: undefined,
 			cwd: options.cwd ?? "/test/project",
+			serverPackageRoot: options.serverPackageRoot,
 			keybindingsConfigPath: path.join(stateDir, "keybindings.json"),
 			stateDir,
 			staticDir: options.staticDir,

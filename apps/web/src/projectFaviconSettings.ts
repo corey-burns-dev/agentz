@@ -3,6 +3,8 @@ import { useCallback, useSyncExternalStore } from "react";
 
 interface ProjectFaviconState {
 	byProjectKey: Record<string, string>;
+	/** Timestamp when override was set; used for cache-busting the favicon URL. */
+	setAtByKey?: Record<string, number>;
 }
 
 const STORAGE_KEY = "agents:project-favicons:v1";
@@ -29,7 +31,10 @@ function parsePersistedState(raw: string | null): ProjectFaviconState {
 			return DEFAULT_STATE;
 		}
 
-		const record = parsed as { byProjectKey?: unknown };
+		const record = parsed as {
+			byProjectKey?: unknown;
+			setAtByKey?: unknown;
+		};
 		const byProjectKey: Record<string, string> = {};
 
 		if (record.byProjectKey && typeof record.byProjectKey === "object") {
@@ -48,7 +53,16 @@ function parsePersistedState(raw: string | null): ProjectFaviconState {
 			}
 		}
 
-		return { byProjectKey };
+		const setAtByKey: Record<string, number> = {};
+		if (record.setAtByKey && typeof record.setAtByKey === "object") {
+			for (const [key, value] of Object.entries(record.setAtByKey)) {
+				if (typeof key !== "string" || key.trim().length === 0) continue;
+				if (typeof value !== "number" || !Number.isFinite(value)) continue;
+				setAtByKey[key] = value;
+			}
+		}
+
+		return { byProjectKey, setAtByKey };
 	} catch {
 		return DEFAULT_STATE;
 	}
@@ -92,6 +106,14 @@ export function getProjectFaviconOverrideForKey(
 	return getProjectFaviconSettingsSnapshot().byProjectKey[projectKey] ?? null;
 }
 
+/** Timestamp when override was set (for cache-busting). 0 if never set. */
+export function getProjectFaviconSetAtForKey(
+	projectKey: string | null,
+): number {
+	if (!projectKey) return 0;
+	return getProjectFaviconSettingsSnapshot().setAtByKey?.[projectKey] ?? 0;
+}
+
 export function setProjectFaviconOverrideForKey(
 	projectKey: string,
 	relativePath: string,
@@ -106,6 +128,10 @@ export function setProjectFaviconOverrideForKey(
 		byProjectKey: {
 			...current.byProjectKey,
 			[projectKey]: normalizedPath,
+		},
+		setAtByKey: {
+			...current.setAtByKey,
+			[projectKey]: Date.now(),
 		},
 	};
 
@@ -123,7 +149,9 @@ export function clearProjectFaviconOverrideForKey(projectKey: string): void {
 
 	const nextByProjectKey = { ...current.byProjectKey };
 	delete nextByProjectKey[projectKey];
-	persistState({ byProjectKey: nextByProjectKey });
+	const nextSetAtByKey = { ...current.setAtByKey };
+	delete nextSetAtByKey[projectKey];
+	persistState({ byProjectKey: nextByProjectKey, setAtByKey: nextSetAtByKey });
 	emitChange();
 }
 
@@ -160,6 +188,7 @@ export function useProjectFaviconOverride(projectKey: string | null) {
 	const relativePath = projectKey
 		? (state.byProjectKey[projectKey] ?? null)
 		: null;
+	const setAt = projectKey ? (state.setAtByKey?.[projectKey] ?? 0) : 0;
 
 	const setOverride = useCallback(
 		(nextRelativePath: string) => {
@@ -176,6 +205,7 @@ export function useProjectFaviconOverride(projectKey: string | null) {
 
 	return {
 		relativePath,
+		setAt,
 		setOverride,
 		clearOverride,
 	} as const;

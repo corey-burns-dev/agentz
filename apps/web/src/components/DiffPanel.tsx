@@ -49,6 +49,7 @@ import {
 	type DiffSizeOption,
 	useUISettings,
 } from "../uiSettings";
+import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Popover, PopoverPopup, PopoverTrigger } from "./ui/popover";
 import { toggleVariants } from "./ui/toggle";
@@ -381,6 +382,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 	const [diffRenderMode, setDiffRenderMode] =
 		useState<DiffRenderMode>("stacked");
 	const [fileQuery, setFileQuery] = useState("");
+	const [isFileSearchExpanded, setIsFileSearchExpanded] = useState(false);
 	const [panelWidth, setPanelWidth] = useState(0);
 	const patchViewportRef = useRef<HTMLDivElement>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -828,7 +830,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 				<button
 					type="button"
 					className={cn(
-						"absolute left-0 top-1/2 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md border bg-background/90 text-muted-foreground transition-colors",
+						"absolute left-0 top-1/2 z-20 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-md border bg-background/90 text-muted-foreground transition-colors",
 						canScrollTurnStripLeft
 							? "border-border/70 hover:border-border hover:text-foreground"
 							: "cursor-not-allowed border-border/40 text-muted-foreground/40",
@@ -837,12 +839,12 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 					disabled={!canScrollTurnStripLeft}
 					aria-label="Scroll turn list left"
 				>
-					<ChevronLeftIcon className="size-3.5" />
+					<ChevronLeftIcon className="size-3" />
 				</button>
 				<button
 					type="button"
 					className={cn(
-						"absolute right-0 top-1/2 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md border bg-background/90 text-muted-foreground transition-colors",
+						"absolute right-0 top-1/2 z-20 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-md border bg-background/90 text-muted-foreground transition-colors",
 						canScrollTurnStripRight
 							? "border-border/70 hover:border-border hover:text-foreground"
 							: "cursor-not-allowed border-border/40 text-muted-foreground/40",
@@ -851,11 +853,11 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 					disabled={!canScrollTurnStripRight}
 					aria-label="Scroll turn list right"
 				>
-					<ChevronRightIcon className="size-3.5" />
+					<ChevronRightIcon className="size-3" />
 				</button>
 				<div
 					ref={turnStripRef}
-					className="turn-chip-strip flex gap-1 overflow-x-auto px-8 py-0.5"
+					className="turn-chip-strip flex gap-1 overflow-x-auto px-7 py-0"
 					onWheel={onTurnStripWheel}
 				>
 					<button
@@ -867,13 +869,13 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 					>
 						<div
 							className={cn(
-								"rounded-md border px-2 py-1 text-left transition-colors",
+								"rounded-md border px-2 py-[3px] text-left transition-colors",
 								selectedTurnId === null
 									? "border-border bg-accent text-accent-foreground"
 									: "border-border/70 bg-background/70 text-muted-foreground/80 hover:border-border hover:text-foreground/80",
 							)}
 						>
-							<div className="text-2xs leading-tight font-medium">
+							<div className="text-[11px] leading-tight font-medium">
 								All turns
 							</div>
 						</div>
@@ -890,20 +892,20 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 						>
 							<div
 								className={cn(
-									"rounded-md border px-2 py-1 text-left transition-colors",
+									"rounded-md border px-2 py-[3px] text-left transition-colors",
 									summary.turnId === selectedTurn?.turnId
 										? "border-border bg-accent text-accent-foreground"
 										: "border-border/70 bg-background/70 text-muted-foreground/80 hover:border-border hover:text-foreground/80",
 								)}
 							>
 								<div className="flex items-center gap-1">
-									<span className="text-2xs leading-tight font-medium">
+									<span className="text-[11px] leading-tight font-medium">
 										Turn{" "}
 										{summary.checkpointTurnCount ??
 											inferredCheckpointTurnCountByTurnId[summary.turnId] ??
 											"?"}
 									</span>
-									<span className="text-3xs leading-tight opacity-70">
+									<span className="text-[10px] leading-tight opacity-70">
 										{formatTurnChipTimestamp(summary.completedAt)}
 									</span>
 								</div>
@@ -938,7 +940,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 		</>
 	);
 	const headerRowClassName = cn(
-		"flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4",
+		"flex min-h-10 flex-wrap items-center justify-between gap-1.5 px-2.5 py-1.5 md:px-3",
 		shouldUseDragRegion ? "drag-region border-b border-border" : "",
 	);
 
@@ -999,9 +1001,9 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 					) : renderablePatch.kind === "files" ? (
 						<div className="flex h-full min-h-0 flex-col gap-2 p-2">
 							<div className="rounded-xl border border-border/70 bg-card/42 px-3 py-2">
-								<div className="flex flex-col gap-3 xl:flex-row xl:items-start">
+								<div className="flex flex-col gap-2.5 xl:flex-row xl:items-start">
 									<div className="min-w-0 flex-1">
-										<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground/72">
+										<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] text-muted-foreground/72">
 											<span className="rounded-full border border-border/70 bg-background/75 px-2 py-0.5 font-medium text-foreground/88">
 												{selectionLabel}
 											</span>
@@ -1025,19 +1027,61 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
 												</span>
 											))}
 										</div>
-										<div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center">
-											<div className="relative min-w-0 flex-1">
-												<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
-												<Input
-													aria-label="Filter changed files"
-													className="rounded-lg pl-8"
-													nativeInput
-													placeholder="Filter changed files"
-													size="sm"
-													type="search"
-													value={fileQuery}
-													onChange={(event) => setFileQuery(event.target.value)}
-												/>
+										<div className="mt-1.5 flex min-w-0 flex-wrap items-center justify-between gap-1.5">
+											<div className="flex min-w-0 items-center gap-1.5">
+												<Button
+													aria-expanded={isFileSearchExpanded}
+													aria-label={
+														isFileSearchExpanded
+															? "Focus changed files filter"
+															: "Show changed files filter"
+													}
+													size="icon-xs"
+													variant="outline"
+													onClick={() =>
+														setIsFileSearchExpanded((current) =>
+															fileQuery.trim().length > 0 ? true : !current,
+														)
+													}
+												>
+													<SearchIcon className="size-3.5" />
+												</Button>
+												{(isFileSearchExpanded ||
+													normalizedFileQuery.length > 0) && (
+													<div className="min-w-0 max-w-72 flex-1 sm:flex-none">
+														<div className="relative w-[min(18rem,calc(100vw-11rem))] max-w-full">
+															<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
+															<Input
+																autoFocus
+																aria-label="Filter changed files"
+																className="rounded-lg pl-8"
+																nativeInput
+																placeholder="Filter changed files"
+																size="sm"
+																type="search"
+																value={fileQuery}
+																onBlur={(event) => {
+																	if (event.target.value.trim().length === 0) {
+																		setIsFileSearchExpanded(false);
+																	}
+																}}
+																onChange={(event) => {
+																	const nextValue = event.target.value;
+																	setFileQuery(nextValue);
+																	if (nextValue.trim().length > 0) {
+																		setIsFileSearchExpanded(true);
+																	}
+																}}
+																onKeyDown={(event) => {
+																	if (event.key !== "Escape") return;
+																	setFileQuery("");
+																	setIsFileSearchExpanded(false);
+																	event.currentTarget.blur();
+																}}
+															/>
+														</div>
+													</div>
+												)}
 											</div>
 											<div className="flex items-center gap-1 rounded-lg border border-border/70 bg-background/65 p-1">
 												<Popover>

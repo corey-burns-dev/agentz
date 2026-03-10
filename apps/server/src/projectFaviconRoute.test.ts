@@ -221,6 +221,48 @@ describe("tryHandleProjectFaviconRequest", () => {
 		});
 	});
 
+	it("serves a well-known favicon from apps/web (monorepo) when no root-level favicon exists", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-apps-web-");
+		const iconPath = path.join(
+			projectDir,
+			"apps",
+			"web",
+			"public",
+			"favicon.svg",
+		);
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(iconPath, "<svg>apps-web-favicon</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>apps-web-favicon</svg>");
+		});
+	});
+
+	it("serves a well-known favicon from packages/site (monorepo) when no root-level favicon exists", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-packages-site-");
+		const iconPath = path.join(
+			projectDir,
+			"packages",
+			"site",
+			"public",
+			"favicon.svg",
+		);
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(iconPath, "<svg>packages-site-favicon</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>packages-site-favicon</svg>");
+		});
+	});
+
 	it("recursively scans the workspace for favicon-like files when well-known locations miss", async () => {
 		const projectDir = makeTempDir("agents-favicon-route-recursive-");
 		const iconPath = path.join(
@@ -239,6 +281,63 @@ describe("tryHandleProjectFaviconRequest", () => {
 			expect(response.statusCode).toBe(200);
 			expect(response.contentType).toContain("image/svg+xml");
 			expect(response.body).toBe("<svg>recursive</svg>");
+		});
+	});
+
+	it("serves a well-known favicon from backend/priv/static (Phoenix/Elixir)", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-backend-priv-");
+		const iconPath = path.join(
+			projectDir,
+			"backend",
+			"priv",
+			"static",
+			"favicon.svg",
+		);
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(iconPath, "<svg>phoenix-favicon</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>phoenix-favicon</svg>");
+		});
+	});
+
+	it("serves public/logo.svg when no favicon exists (e.g. agents monorepo)", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-public-logo-");
+		const iconPath = path.join(projectDir, "apps", "web", "public", "logo.svg");
+		fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+		fs.writeFileSync(iconPath, "<svg>logo</svg>", "utf8");
+
+		await withRouteServer(async (baseUrl) => {
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>logo</svg>");
+		});
+	});
+
+	it("resolves cwd when given as file:// URL", async () => {
+		const projectDir = makeTempDir("agents-favicon-route-file-url-");
+		fs.writeFileSync(
+			path.join(projectDir, "favicon.svg"),
+			"<svg>file-url</svg>",
+			"utf8",
+		);
+
+		await withRouteServer(async (baseUrl) => {
+			const fileUrl =
+				path.sep === "\\"
+					? `file:///${projectDir.replace(/\\/g, "/")}`
+					: `file://${projectDir}`;
+			const pathname = `/api/project-favicon?cwd=${encodeURIComponent(fileUrl)}`;
+			const response = await request(baseUrl, pathname);
+			expect(response.statusCode).toBe(200);
+			expect(response.contentType).toContain("image/svg+xml");
+			expect(response.body).toBe("<svg>file-url</svg>");
 		});
 	});
 

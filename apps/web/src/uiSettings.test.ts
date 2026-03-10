@@ -167,6 +167,7 @@ describe("uiSettings", () => {
 			glassEffect: true,
 			projectFaviconSize: "large",
 			radiusPreset: "pill",
+			sidebarSpacing: "default",
 			themeMode: "dark",
 			themePreset: "midnight",
 		});

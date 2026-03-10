@@ -1274,22 +1274,34 @@ export function ComposerArea(props: ComposerAreaProps) {
 										</Button>
 									</div>
 								) : props.phase === "running" ? (
-									<button
-										type="button"
-										className="flex size-8 items-center justify-center rounded-full bg-destructive/90 text-white transition-all duration-150 hover:bg-destructive hover:scale-105 sm:h-8 sm:w-8"
-										onClick={() => void props.onInterrupt()}
-										aria-label="Stop generation"
-									>
-										<svg
-											width="12"
-											height="12"
-											viewBox="0 0 12 12"
-											fill="currentColor"
-											aria-hidden="true"
+									<div className="flex items-center gap-2">
+										{props.prompt.trim().length > 0 && (
+											<button
+												type="submit"
+												className="flex h-9 items-center justify-center rounded-full bg-primary/90 px-4 text-sm text-primary-foreground transition-all hover:bg-primary sm:h-8"
+												disabled={props.isSendBusy || props.isConnecting}
+												title="Queue this message (will send after current turn)"
+											>
+												Queue
+											</button>
+										)}
+										<button
+											type="button"
+											className="flex size-8 items-center justify-center rounded-full bg-destructive/90 text-white transition-all duration-150 hover:bg-destructive hover:scale-105 sm:h-8 sm:w-8"
+											onClick={() => void props.onInterrupt()}
+											aria-label="Stop generation"
 										>
-											<rect x="2" y="2" width="8" height="8" rx="1.5" />
-										</svg>
-									</button>
+											<svg
+												width="12"
+												height="12"
+												viewBox="0 0 12 12"
+												fill="currentColor"
+												aria-hidden="true"
+											>
+												<rect x="2" y="2" width="8" height="8" rx="1.5" />
+											</svg>
+										</button>
+									</div>
 								) : props.pendingUserInputs.length === 0 ? (
 									props.showPlanFollowUpPrompt ? (
 										props.prompt.trim().length > 0 ? (

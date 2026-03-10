@@ -30,6 +30,7 @@ import { resolveThreadWorkspaceCwd } from "../../checkpointing/Utils.ts";
 import { GitCore } from "../../git/Services/GitCore.ts";
 import { TextGeneration } from "../../git/Services/TextGeneration.ts";
 import { ProviderAdapterRequestError } from "../../provider/Errors.ts";
+import { ProviderBusyError } from "../../provider/providerBusyError.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import {
@@ -46,7 +47,8 @@ type ProviderIntentEvent = Extract<
 			| "thread.turn-interrupt-requested"
 			| "thread.approval-response-requested"
 			| "thread.user-input-response-requested"
-			| "thread.session-stop-requested";
+			| "thread.session-stop-requested"
+			| "thread.session-set";
 	}
 >;
 
@@ -143,11 +145,26 @@ function buildGeneratedWorktreeBranchName(raw: string): string {
 	return `${WORKTREE_BRANCH_PREFIX}/${safeFragment}`;
 }
 
+const MAX_TURN_QUEUE_DEPTH = 3;
+
+type PendingTurnData = {
+	threadId: ThreadId;
+	messageText: string;
+	attachments?: ReadonlyArray<ChatAttachment>;
+	model?: string;
+	serviceTier?: ProviderServiceTier | null;
+	modelOptions?: ProviderModelOptions;
+	providerOptions?: ProviderSessionStartInput["providerOptions"];
+	interactionMode?: "default" | "plan";
+	createdAt: string;
+};
+
 const make = Effect.gen(function* () {
 	const orchestrationEngine = yield* OrchestrationEngineService;
 	const providerService = yield* ProviderService;
 	const git = yield* GitCore;
 	const textGeneration = yield* TextGeneration;
+	const pendingTurns = new Map<string, Array<PendingTurnData>>();
 	const handledTurnStartKeys = yield* Cache.make<string, true>({
 		capacity: HANDLED_TURN_START_KEY_MAX,
 		timeToLive: HANDLED_TURN_START_KEY_TTL,
@@ -569,14 +586,11 @@ const make = Effect.gen(function* () {
 				: {}),
 		}).pipe(Effect.forkScoped);
 
-		yield* sendTurnForThread({
+		const turnData: PendingTurnData = {
 			threadId: event.payload.threadId,
 			messageText: message.text,
 			...(message.attachments !== undefined
 				? { attachments: message.attachments }
-				: {}),
-			...(event.payload.provider !== undefined
-				? { provider: event.payload.provider }
 				: {}),
 			...(event.payload.model !== undefined
 				? { model: event.payload.model }
@@ -592,7 +606,26 @@ const make = Effect.gen(function* () {
 				: {}),
 			interactionMode: event.payload.interactionMode,
 			createdAt: event.payload.createdAt,
-		});
+		};
+
+		yield* Effect.catchDefect(
+			sendTurnForThread({
+				...turnData,
+				...(event.payload.provider !== undefined
+					? { provider: event.payload.provider }
+					: {}),
+			}),
+			(defect) => {
+				if (defect instanceof ProviderBusyError) {
+					const queue = pendingTurns.get(event.payload.threadId) ?? [];
+					if (queue.length < MAX_TURN_QUEUE_DEPTH) {
+						pendingTurns.set(event.payload.threadId, [...queue, turnData]);
+					}
+					return Effect.void;
+				}
+				return Effect.die(defect);
+			},
+		);
 	});
 
 	const processTurnInterruptRequested = Effect.fnUntraced(function* (
@@ -749,6 +782,21 @@ const make = Effect.gen(function* () {
 		});
 	});
 
+	const processSessionSet = Effect.fnUntraced(function* (
+		event: Extract<ProviderIntentEvent, { type: "thread.session-set" }>,
+	) {
+		const { session } = event.payload;
+		if (session.activeTurnId !== null) return;
+		if (session.status !== "ready" && session.status !== "error") return;
+
+		const queue = pendingTurns.get(event.payload.threadId);
+		if (!queue || queue.length === 0) return;
+
+		const [next, ...rest] = queue;
+		pendingTurns.set(event.payload.threadId, rest);
+		yield* sendTurnForThread(next!);
+	});
+
 	const processDomainEvent = (event: ProviderIntentEvent) =>
 		Effect.gen(function* () {
 			switch (event.type) {
@@ -777,6 +825,9 @@ const make = Effect.gen(function* () {
 					return;
 				case "thread.session-stop-requested":
 					yield* processSessionStopRequested(event);
+					return;
+				case "thread.session-set":
+					yield* processSessionSet(event);
 					return;
 			}
 		});
@@ -815,7 +866,8 @@ const make = Effect.gen(function* () {
 					event.type !== "thread.turn-interrupt-requested" &&
 					event.type !== "thread.approval-response-requested" &&
 					event.type !== "thread.user-input-response-requested" &&
-					event.type !== "thread.session-stop-requested"
+					event.type !== "thread.session-stop-requested" &&
+					event.type !== "thread.session-set"
 				) {
 					return Effect.void;
 				}

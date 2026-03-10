@@ -56,6 +56,7 @@ import {
 	sendJsonRpcRequest,
 	writeJsonRpcMessage,
 } from "./codexAppServerTransport";
+import { ProviderBusyError } from "./provider/providerBusyError";
 
 export type {
 	CodexAppServerSendTurnInput,
@@ -321,6 +322,10 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
 		input: CodexAppServerSendTurnInput,
 	): Promise<ProviderTurnStartResult> {
 		const context = this.requireSession(input.threadId);
+
+		if (context.session.activeTurnId) {
+			throw new ProviderBusyError(input.threadId);
+		}
 
 		const turnInput: Array<
 			| { type: "text"; text: string; text_elements: [] }

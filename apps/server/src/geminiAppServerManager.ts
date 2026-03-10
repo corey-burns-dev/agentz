@@ -46,6 +46,7 @@ import {
 	sendJsonRpcRequest,
 	writeJsonRpcMessage,
 } from "./geminiAppServerTransport";
+import { ProviderBusyError } from "./provider/providerBusyError";
 
 export type {
 	GeminiAppServerSendTurnInput,
@@ -437,7 +438,7 @@ export class GeminiAppServerManager extends EventEmitter<GeminiAppServerManagerE
 			throw new Error("Gemini session is missing an ACP session id.");
 		}
 		if (context.activeTurn) {
-			throw new Error("Gemini session is already running a turn.");
+			throw new ProviderBusyError(input.threadId);
 		}
 
 		const requestedModel = normalizeGeminiModelSlug(input.model);

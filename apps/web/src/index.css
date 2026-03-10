@@ -678,3 +678,34 @@ html.glass [class*="bg-sidebar"] {
   overflow: clip;
   background: color-mix(in srgb, var(--card) 92%, var(--background));
 }
+
+/* ============================================================
+   Provider activity animations (collapsed project title)
+   ============================================================ */
+
+@keyframes provider-pulse-gemini {
+  0%, 100% { color: var(--color-foreground); opacity: 0.9; }
+  50% { color: #3b82f6; opacity: 1; }
+}
+
+@keyframes provider-pulse-claude {
+  0%, 100% { color: var(--color-foreground); opacity: 0.9; }
+  50% { color: #f97316; opacity: 1; }
+}
+
+@keyframes provider-pulse-codex {
+  0%, 100% { color: var(--color-foreground); opacity: 0.9; }
+  50% { color: #94a3b8; opacity: 1; }
+}
+
+.animate-provider-gemini {
+  animation: provider-pulse-gemini 2s ease-in-out infinite;
+}
+
+.animate-provider-claude {
+  animation: provider-pulse-claude 2s ease-in-out infinite;
+}
+
+.animate-provider-codex {
+  animation: provider-pulse-codex 2s ease-in-out infinite;
+}

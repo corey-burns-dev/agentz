@@ -17,6 +17,7 @@ import {
 	PROJECT_FAVICON_SIZE_OPTIONS,
 	RADIUS_PRESETS,
 	resolveUISettingsTheme,
+	SIDEBAR_SPACING_OPTIONS,
 	THEME_MODE_OPTIONS,
 	type ThemeMode,
 	useUISettings,
@@ -100,6 +101,15 @@ const PROJECT_FAVICON_SIZE_LABELS: Record<
 	large: "Large",
 };
 
+const SIDEBAR_SPACING_LABELS: Record<
+	(typeof SIDEBAR_SPACING_OPTIONS)[number],
+	string
+> = {
+	compact: "Compact",
+	default: "Default",
+	spacious: "Spacious",
+};
+
 const THEME_MODE_OPTIONS_LIST: ReadonlyArray<SettingsOption<ThemeMode>> =
 	THEME_MODE_OPTIONS.map((mode) => ({
 		value: mode,
@@ -137,6 +147,13 @@ const PROJECT_FAVICON_SIZE_OPTIONS_LIST: ReadonlyArray<
 			: size === "medium"
 				? "Keep the current default balance."
 				: "Make project icons easier to scan.",
+}));
+
+const SIDEBAR_SPACING_OPTIONS_LIST: ReadonlyArray<
+	SettingsOption<(typeof SIDEBAR_SPACING_OPTIONS)[number]>
+> = SIDEBAR_SPACING_OPTIONS.map((spacing) => ({
+	value: spacing,
+	label: SIDEBAR_SPACING_LABELS[spacing],
 }));
 
 const PALETTE_OPTIONS: ReadonlyArray<
@@ -321,6 +338,24 @@ export function ThemeSection() {
 							updateUISettings({ projectFaviconSize })
 						}
 						options={PROJECT_FAVICON_SIZE_OPTIONS_LIST}
+					/>
+				</div>
+
+				<div className="space-y-2.5">
+					<div className="space-y-1">
+						<p className="text-xs font-medium text-foreground">
+							Sidebar row spacing
+						</p>
+						<SettingsHint>
+							Controls the line height and gap between project and thread rows
+							in the sidebar.
+						</SettingsHint>
+					</div>
+					<SettingsSegmentedControl
+						legend="Sidebar row spacing"
+						value={uiSettings.sidebarSpacing}
+						onChange={(sidebarSpacing) => updateUISettings({ sidebarSpacing })}
+						options={SIDEBAR_SPACING_OPTIONS_LIST}
 					/>
 				</div>
 

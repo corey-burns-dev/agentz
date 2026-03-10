@@ -20,6 +20,8 @@ export interface ServerConfigShape {
 	readonly port: number;
 	readonly host: string | undefined;
 	readonly cwd: string;
+	/** Resolved path of the server package root (e.g. apps/server). Used to skip auto-bootstrap when cwd is the server itself. */
+	readonly serverPackageRoot: string | undefined;
 	readonly keybindingsConfigPath: string;
 	readonly stateDir: string;
 	readonly staticDir: string | undefined;
@@ -44,6 +46,7 @@ export class ServerConfig extends ServiceMap.Service<
 				const path = yield* Path.Path;
 				return {
 					cwd,
+					serverPackageRoot: undefined,
 					stateDir: statedir,
 					mode: "web",
 					autoBootstrapProjectFromCwd: false,

@@ -4,6 +4,7 @@ import {
 	type DesktopUpdateState,
 	type GitStatusResult,
 	type ProjectId,
+	type ProviderKind,
 	type ResolvedKeybindingsConfig,
 	ThreadId,
 } from "@agents/contracts";
@@ -61,6 +62,7 @@ import {
 	buildProjectThreadList,
 } from "../threadDrafts";
 import type { Thread } from "../types";
+import { type SidebarSpacingOption, useUISettings } from "../uiSettings";
 import {
 	formatWorktreePathForDisplay,
 	getOrphanedWorktreePathForThread,
@@ -101,6 +103,24 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
 const THREAD_PREVIEW_LIMIT = 10;
+
+const SIDEBAR_PROJECT_ROW_PY: Record<SidebarSpacingOption, string> = {
+	compact: "py-0.5",
+	default: "py-1.5",
+	spacious: "py-2.5",
+};
+
+const SIDEBAR_THREAD_ROW_H: Record<SidebarSpacingOption, string> = {
+	compact: "h-6",
+	default: "h-7",
+	spacious: "h-9",
+};
+
+const SIDEBAR_THREAD_GAP: Record<SidebarSpacingOption, string> = {
+	compact: "gap-0",
+	default: "gap-0",
+	spacious: "gap-0.5",
+};
 
 async function copyTextToClipboard(text: string): Promise<void> {
 	if (
@@ -169,19 +189,33 @@ function threadStatusPill(
 	}
 
 	if (thread.session?.status === "running") {
+		const provider = thread.session.provider;
+		const dotClass =
+			provider === "gemini"
+				? "bg-sky-400/90"
+				: provider === "claude-code"
+					? "bg-amber-400/90"
+					: "bg-slate-300/85";
 		return {
 			label: "Working",
 			colorClass: "text-sky-600 dark:text-sky-300/80",
-			dotClass: "bg-sky-500 dark:bg-sky-300/80",
+			dotClass,
 			pulse: true,
 		};
 	}
 
 	if (thread.session?.status === "connecting") {
+		const provider = thread.session.provider;
+		const dotClass =
+			provider === "gemini"
+				? "bg-sky-400/90"
+				: provider === "claude-code"
+					? "bg-amber-400/90"
+					: "bg-slate-300/85";
 		return {
 			label: "Connecting",
 			colorClass: "text-sky-600 dark:text-sky-300/80",
-			dotClass: "bg-sky-500 dark:bg-sky-300/80",
+			dotClass,
 			pulse: true,
 		};
 	}
@@ -195,6 +229,22 @@ function threadStatusPill(
 		};
 	}
 
+	return null;
+}
+
+const PROVIDER_TITLE_ANIM: Record<ProviderKind, string> = {
+	gemini: "animate-provider-gemini",
+	"claude-code": "animate-provider-claude",
+	codex: "animate-provider-codex",
+};
+
+function getActiveProvider(threads: Thread[]): ProviderKind | null {
+	for (const thread of threads) {
+		const status = thread.session?.status;
+		if (status === "running" || status === "connecting") {
+			return thread.session!.provider;
+		}
+	}
 	return null;
 }
 
@@ -299,6 +349,7 @@ export default function Sidebar() {
 		select: (location) => location.pathname === "/settings",
 	});
 	const { settings: appSettings } = useAppSettings();
+	const { settings: uiSettings } = useUISettings();
 	const routeThreadId = useParams({
 		strict: false,
 		select: (params) =>
@@ -1405,6 +1456,9 @@ export default function Sidebar() {
 							const unseenCompletionCount = projectThreads.filter((t) =>
 								hasUnseenCompletion(t),
 							).length;
+							const activeProvider = !project.expanded
+								? getActiveProvider(projectThreads)
+								: null;
 							const hasHiddenThreads =
 								projectThreads.length > THREAD_PREVIEW_LIMIT;
 							const visibleThreads =
@@ -1428,7 +1482,7 @@ export default function Sidebar() {
 												render={
 													<SidebarMenuButton
 														size="sm"
-														className="gap-2 px-2 py-1.5 text-left hover:bg-transparent! hover:text-sidebar-foreground! group-hover/project-header:bg-transparent! group-hover/project-header:text-sidebar-foreground!"
+														className={`gap-2 px-2 ${SIDEBAR_PROJECT_ROW_PY[uiSettings.sidebarSpacing]} text-left hover:bg-transparent! hover:text-sidebar-foreground! group-hover/project-header:bg-transparent! group-hover/project-header:text-sidebar-foreground!`}
 													/>
 												}
 												onContextMenu={(event) => {
@@ -1445,7 +1499,13 @@ export default function Sidebar() {
 													}`}
 												/>
 												<ProjectFavicon cwd={project.cwd} />
-												<span className="flex-1 truncate text-xs font-medium text-foreground/90">
+												<span
+													className={`flex-1 truncate text-xs font-medium transition-colors${
+														activeProvider !== null
+															? ` ${PROVIDER_TITLE_ANIM[activeProvider]}`
+															: " text-foreground/90"
+													}`}
+												>
 													{project.name}
 												</span>
 												{!project.expanded && unseenCompletionCount > 0 && (
@@ -1489,7 +1549,9 @@ export default function Sidebar() {
 										</div>
 
 										<CollapsibleContent>
-											<SidebarMenuSub className="mx-1 my-0 w-full translate-x-0 gap-0 px-1.5 py-0">
+											<SidebarMenuSub
+												className={`mx-1 my-0 w-full translate-x-0 ${SIDEBAR_THREAD_GAP[uiSettings.sidebarSpacing]} px-1.5 py-0`}
+											>
 												{visibleThreads.map((thread) => {
 													const isActive = routeThreadId === thread.id;
 													const isPersistedThread = persistedThreadIds.has(
@@ -1518,7 +1580,7 @@ export default function Sidebar() {
 																render={<button type="button" />}
 																size="sm"
 																isActive={isActive}
-																className={`h-7 w-full translate-x-0 cursor-default justify-start px-2 text-left ${
+																className={`${SIDEBAR_THREAD_ROW_H[uiSettings.sidebarSpacing]} w-full translate-x-0 cursor-default justify-start px-2 text-left ${
 																	isActive
 																		? "bg-accent/85 text-foreground font-medium ring-1 ring-border/70 hover:bg-accent/85! hover:text-foreground! dark:bg-accent/55 dark:ring-border/50"
 																		: "text-muted-foreground hover:bg-transparent! hover:text-muted-foreground!"
@@ -1585,9 +1647,11 @@ export default function Sidebar() {
 																						: ""
 																				}`}
 																			/>
-																			<span className="hidden md:inline">
-																				{threadStatus.label}
-																			</span>
+																			{!threadStatus.pulse && (
+																				<span className="hidden md:inline">
+																					{threadStatus.label}
+																				</span>
+																			)}
 																		</span>
 																	)}
 																	{renamingThreadId === thread.id ? (

@@ -14,10 +14,12 @@ function ProjectFaviconImage({
 	cwd,
 	sizeClassName,
 	overridePath,
+	overrideSetAt,
 }: {
 	cwd: string;
 	sizeClassName: string;
 	overridePath: string | null;
+	overrideSetAt: number;
 }) {
 	const sources = useMemo(() => {
 		if (overridePath) {
@@ -25,12 +27,13 @@ function ProjectFaviconImage({
 				buildProjectFaviconUrl({
 					cwd,
 					relativePath: overridePath,
+					cacheBust: overrideSetAt,
 				}),
 				buildProjectFaviconUrl({ cwd }),
 			];
 		}
 		return [buildProjectFaviconUrl({ cwd })];
-	}, [cwd, overridePath]);
+	}, [cwd, overridePath, overrideSetAt]);
 	const [sourceIndex, setSourceIndex] = useState(0);
 	const [status, setStatus] = useState<"loading" | "loaded" | "error">(
 		"loading",
@@ -84,17 +87,19 @@ export function ProjectFavicon({
 	relativePathOverride?: string | null;
 }) {
 	const { settings } = useUISettings();
-	const storedOverride = useProjectFaviconOverride(cwd).relativePath;
+	const { relativePath: storedOverride, setAt: storedSetAt } =
+		useProjectFaviconOverride(cwd);
 	const effectiveOverride = relativePathOverride ?? storedOverride ?? null;
 	const effectiveSize = displaySize ?? settings.projectFaviconSize;
 	const sizeClassName = FAVICON_SIZE_CLASS_NAMES[effectiveSize];
 
 	return (
 		<ProjectFaviconImage
-			key={`${cwd}:${effectiveOverride ?? "__auto__"}`}
+			key={`${cwd}:${effectiveOverride ?? "__auto__"}:${storedSetAt}`}
 			cwd={cwd}
 			sizeClassName={sizeClassName}
 			overridePath={effectiveOverride}
+			overrideSetAt={storedSetAt}
 		/>
 	);
 }
