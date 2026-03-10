@@ -420,8 +420,8 @@ function ProjectDockRouteSlot({ onClose }: { onClose: () => void }) {
 			}}
 			onClose={onClose}
 			gitCwd={workspaceCwd}
-			workspaceCwd={workspaceCwd}
-			{...(activeProject?.name ? { projectName: activeProject.name } : {})}
+			project={activeProject ?? null}
+			workspaceCwd={activeProject?.cwd ?? null}
 		/>
 	);
 }

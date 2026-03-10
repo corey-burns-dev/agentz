@@ -4,6 +4,7 @@ import {
 	appendProjectTodoItem,
 	parseProjectTodoItems,
 	selectProjectTodoFile,
+	toggleProjectTodoCompletion,
 } from "./projectTodos";
 
 describe("projectTodos", () => {
@@ -39,11 +40,13 @@ describe("projectTodos", () => {
 			{
 				completed: false,
 				id: "2:Add project todo panel",
+				lineIndex: 2,
 				text: "Add project todo panel",
 			},
 			{
 				completed: true,
 				id: "3:Remove issues warning",
+				lineIndex: 3,
 				text: "Remove issues warning",
 			},
 		]);
@@ -59,5 +62,18 @@ describe("projectTodos", () => {
 		expect(
 			appendProjectTodoItem("# TODO\n\n- [x] Done already\n", "Next item"),
 		).toBe("# TODO\n\n- [x] Done already\n- [ ] Next item\n");
+	});
+
+	it("toggles todo completion in-place", () => {
+		const contents =
+			"# TODO\n\n- [ ] Add project todo panel\n- [x] Remove issues warning\n";
+
+		expect(toggleProjectTodoCompletion(contents, 2)).toBe(
+			"# TODO\n\n- [x] Add project todo panel\n- [x] Remove issues warning\n",
+		);
+
+		expect(toggleProjectTodoCompletion(contents, 3)).toBe(
+			"# TODO\n\n- [ ] Add project todo panel\n- [ ] Remove issues warning\n",
+		);
 	});
 });

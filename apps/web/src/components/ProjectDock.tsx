@@ -32,7 +32,12 @@ import {
 import { projectTodoFileQueryOptions } from "~/lib/projectTodoReactQuery";
 import { cn } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
-import { appendProjectTodoItem, parseProjectTodoItems } from "~/projectTodos";
+import type { ProjectTodoItem } from "~/projectTodos";
+import {
+	appendProjectTodoItem,
+	parseProjectTodoItems,
+	toggleProjectTodoCompletion,
+} from "~/projectTodos";
 import {
 	preferredTerminalEditor,
 	resolvePathLinkTarget,
@@ -42,11 +47,28 @@ import {
 	type PerProjectNotificationSettings,
 	useProjectNotificationSettings,
 } from "../projectNotificationSettings";
+import type { Project } from "../types";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { toastManager } from "./ui/toast";
+
+type SectionKey = "branch" | "notifications" | "todos";
+
+const DOCK_SECTION_PADDING = "p-2";
+const DOCK_SECTION_GAP = "space-y-2";
+const DOCK_HEADER_PY = "py-1";
+
+function loadCollapsedSections(): Record<SectionKey, boolean> {
+	try {
+		const v = localStorage.getItem("dock.sections");
+		if (v) return JSON.parse(v) as Record<SectionKey, boolean>;
+	} catch {
+		// ignore
+	}
+	return { branch: false, notifications: false, todos: false };
+}
 
 interface WorkspaceTreeNode {
 	children: WorkspaceTreeNode[];
@@ -60,7 +82,7 @@ interface ProjectDockProps {
 	gitCwd: string | null;
 	onClose: () => void;
 	onTabChange: (tab: ProjectDockTab) => void;
-	projectName?: string;
+	project: Project | null;
 	workspaceCwd: string | null;
 }
 
@@ -218,6 +240,61 @@ function projectNotificationSummary(
 	return "Per-project notifications are muted.";
 }
 
+function DockSection(props: {
+	action?: ReactNode;
+	bodyClassName?: string;
+	children: ReactNode;
+	collapsed: boolean;
+	grow?: boolean;
+	onToggle: () => void;
+	title: string;
+}) {
+	return (
+		<section
+			className={cn(
+				"rounded-xl border border-border/70 bg-background/55",
+				props.grow && !props.collapsed && "flex min-h-0 flex-1 flex-col",
+			)}
+		>
+			<div
+				className={cn(
+					"flex items-center justify-between gap-3 border-b border-border/60 px-3",
+					DOCK_HEADER_PY,
+				)}
+			>
+				<button
+					type="button"
+					onClick={props.onToggle}
+					className="flex min-w-0 flex-1 items-center gap-2 text-left"
+					aria-expanded={!props.collapsed}
+				>
+					<ChevronRightIcon
+						className={cn(
+							"size-3.5 shrink-0 text-muted-foreground transition-transform",
+							!props.collapsed && "rotate-90",
+						)}
+					/>
+					<p className="truncate text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+						{props.title}
+					</p>
+				</button>
+				{props.action}
+			</div>
+			{props.collapsed ? null : (
+				<div
+					className={cn(
+						"min-h-0 px-3 pb-3",
+						props.grow && "flex min-h-0 flex-1 flex-col",
+						props.bodyClassName,
+					)}
+				>
+					{props.children}
+				</div>
+			)}
+		</section>
+	);
+}
+
 function GitSummaryCard(props: {
 	gitStatus: GitStatusResult | null;
 	gitStatusError: Error | null;
@@ -314,11 +391,26 @@ const ProjectDock = memo(function ProjectDock({
 	gitCwd,
 	onClose,
 	onTabChange,
-	projectName,
+	project,
 	workspaceCwd,
 }: ProjectDockProps) {
 	const [fileFilter, setFileFilter] = useState("");
 	const [newTodoText, setNewTodoText] = useState("");
+	const [collapsedSections, setCollapsedSections] = useState<
+		Record<SectionKey, boolean>
+	>(loadCollapsedSections);
+
+	const toggleSection = useCallback((section: SectionKey) => {
+		setCollapsedSections((prev) => {
+			const next = { ...prev, [section]: !prev[section] };
+			try {
+				localStorage.setItem("dock.sections", JSON.stringify(next));
+			} catch {
+				// ignore
+			}
+			return next;
+		});
+	}, []);
 	const [expandedDirectories, setExpandedDirectories] = useState<
 		Record<string, boolean>
 	>({});
@@ -483,6 +575,58 @@ const ProjectDock = memo(function ProjectDock({
 		writeTodoFileMutation,
 	]);
 
+	const handleToggleTodoItem = useCallback(
+		(item: ProjectTodoItem) => {
+			if (!workspaceCwd) {
+				toastManager.add({
+					type: "error",
+					title: "Project todos are unavailable.",
+				});
+				return;
+			}
+
+			const existingContents = projectTodoFileQuery.data?.contents ?? null;
+			if (!existingContents) {
+				return;
+			}
+
+			const relativePath = projectTodoFileQuery.data?.relativePath ?? "TODO.md";
+			const contents = toggleProjectTodoCompletion(
+				existingContents,
+				item.lineIndex,
+			);
+
+			if (contents === existingContents) {
+				return;
+			}
+
+			writeTodoFileMutation.mutate(
+				{
+					relativePath,
+					contents,
+				},
+				{
+					onError: (error) => {
+						toastManager.add({
+							type: "error",
+							title: "Could not update todo",
+							description:
+								error instanceof Error
+									? error.message
+									: "An error occurred while updating the todo.",
+						});
+					},
+				},
+			);
+		},
+		[
+			projectTodoFileQuery.data?.contents,
+			projectTodoFileQuery.data?.relativePath,
+			workspaceCwd,
+			writeTodoFileMutation,
+		],
+	);
+
 	const toggleDirectory = useCallback((path: string) => {
 		setExpandedDirectories((current) => ({
 			...current,
@@ -542,22 +686,24 @@ const ProjectDock = memo(function ProjectDock({
 
 	return (
 		<div className="flex h-full w-full shrink-0 flex-col border-l border-border/70 bg-card/60 text-foreground backdrop-blur-sm">
-			<div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-3">
+			<div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/60 px-3 py-3">
 				<div className="min-w-0">
 					<p className="truncate font-medium text-sm">
-						{projectName ?? "Project"}
+						{project?.name ?? "Project"}
 					</p>
 					<p className="text-[11px] text-muted-foreground">Project dock</p>
 				</div>
-				<Button
-					size="icon-xs"
-					variant="ghost"
-					onClick={onClose}
-					aria-label="Close project dock"
-					className="text-muted-foreground/60 hover:text-foreground/80"
-				>
-					<PanelRightCloseIcon className="size-3.5" />
-				</Button>
+				<div className="flex items-center gap-1">
+					<Button
+						size="icon-xs"
+						variant="ghost"
+						onClick={onClose}
+						aria-label="Close project dock"
+						className="text-muted-foreground/60 hover:text-foreground/80"
+					>
+						<PanelRightCloseIcon className="size-3.5" />
+					</Button>
+				</div>
 			</div>
 
 			<div className="flex items-center gap-1 border-b border-border/60 px-3 py-2">
@@ -591,26 +737,34 @@ const ProjectDock = memo(function ProjectDock({
 
 			<ScrollArea className="min-h-0 flex-1">
 				{activeTab === "git" ? (
-					<div className="space-y-4 p-3">
-						<div>
-							<p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-								Repository
-							</p>
-							<div className="pt-2">
+					<div
+						className={cn(
+							"flex min-h-full flex-col",
+							DOCK_SECTION_PADDING,
+							DOCK_SECTION_GAP,
+						)}
+					>
+						<DockSection
+							title="Branch"
+							collapsed={collapsedSections.branch}
+							onToggle={() => toggleSection("branch")}
+						>
+							<div className="pt-3">
 								<GitSummaryCard
 									gitStatus={gitStatus}
 									gitStatusError={gitStatusError}
 									isRepo={isRepo}
 								/>
 							</div>
-						</div>
+						</DockSection>
 
 						{isRepo && notificationProjectKey ? (
-							<div>
-								<p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-									Notifications
-								</p>
-								<div className="mt-2 space-y-2">
+							<DockSection
+								title="Notifications"
+								collapsed={collapsedSections.notifications}
+								onToggle={() => toggleSection("notifications")}
+							>
+								<div className="space-y-2 pt-3">
 									<div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/70 px-3 py-2">
 										<div className="min-w-0">
 											<p className="truncate text-sm font-medium text-foreground">
@@ -679,15 +833,16 @@ const ProjectDock = memo(function ProjectDock({
 										</button>
 									</div>
 								</div>
-							</div>
+							</DockSection>
 						) : null}
 
-						<div>
-							<div className="flex items-center justify-between gap-3">
-								<p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-									Todos
-								</p>
-								{projectTodoFileQuery.data?.exists ? (
+						<DockSection
+							title="Todos"
+							collapsed={collapsedSections.todos}
+							onToggle={() => toggleSection("todos")}
+							grow
+							action={
+								projectTodoFileQuery.data?.exists ? (
 									<Button
 										size="xs"
 										variant="ghost"
@@ -699,10 +854,10 @@ const ProjectDock = memo(function ProjectDock({
 									>
 										Open file
 									</Button>
-								) : null}
-							</div>
-
-							<div className="space-y-2 pt-2">
+								) : undefined
+							}
+						>
+							<div className="flex min-h-0 flex-1 flex-col space-y-2 pt-3">
 								<form
 									className="flex gap-2"
 									onSubmit={(event) => {
@@ -714,11 +869,12 @@ const ProjectDock = memo(function ProjectDock({
 										value={newTodoText}
 										onChange={(event) => setNewTodoText(event.target.value)}
 										placeholder="Add a project todo"
+										className="font-sans text-sm"
 										disabled={!workspaceCwd || writeTodoFileMutation.isPending}
 									/>
 									<Button
 										type="submit"
-										size="sm"
+										size="xs"
 										disabled={
 											!workspaceCwd ||
 											writeTodoFileMutation.isPending ||
@@ -726,7 +882,7 @@ const ProjectDock = memo(function ProjectDock({
 										}
 									>
 										<PlusIcon className="size-3.5" />
-										Add
+										Add task
 									</Button>
 								</form>
 
@@ -742,7 +898,7 @@ const ProjectDock = memo(function ProjectDock({
 											: "Could not load project todos."}
 									</div>
 								) : (
-									<>
+									<div className="flex min-h-0 flex-1 flex-col gap-2">
 										<div className="flex flex-wrap gap-2">
 											<Badge variant="outline" className="rounded-md text-2xs">
 												{openTodoItems.length} open
@@ -756,53 +912,74 @@ const ProjectDock = memo(function ProjectDock({
 											<Badge
 												variant="secondary"
 												className="rounded-md text-2xs"
+												render={
+													<button
+														type="button"
+														onClick={() =>
+															openWorkspaceEntry(
+																projectTodoFileQuery.data?.relativePath ??
+																	"TODO.md",
+															)
+														}
+														title="Open todo file in your editor"
+													/>
+												}
 											>
 												{projectTodoFileQuery.data?.relativePath ?? "TODO.md"}
 											</Badge>
 										</div>
 
-										{todoItems.length > 0 ? (
-											<div className="space-y-2">
-												{todoItems.map((item) => (
-													<div
-														key={item.id}
-														className="flex items-start gap-2 rounded-xl border border-border/70 bg-background/70 p-3"
-													>
-														{item.completed ? (
-															<CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-														) : (
-															<CircleIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-														)}
-														<div className="min-w-0">
-															<p
-																className={cn(
-																	"text-sm leading-snug",
-																	item.completed &&
-																		"text-muted-foreground line-through",
-																)}
-															>
-																{item.text}
-															</p>
-														</div>
-													</div>
-												))}
-											</div>
-										) : (
-											<div className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
-												{projectTodoFileQuery.isLoading
-													? "Loading todos..."
-													: projectTodoFileQuery.data?.exists
-														? "No markdown checklist items found in the todo file yet."
-														: "No todo file yet. Add your first task and Agents will create TODO.md in the project root."}
-											</div>
-										)}
-									</>
+										<ScrollArea className="min-h-0 flex-1">
+											{todoItems.length > 0 ? (
+												<div className="space-y-2">
+													{todoItems.map((item) => (
+														<button
+															key={item.id}
+															type="button"
+															onClick={() => handleToggleTodoItem(item)}
+															disabled={writeTodoFileMutation.isPending}
+															className={cn(
+																"flex w-full items-start gap-2 rounded-xl border border-border/70 bg-background/70 p-3 text-left transition",
+																writeTodoFileMutation.isPending &&
+																	"cursor-wait opacity-70",
+															)}
+														>
+															{item.completed ? (
+																<CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+															) : (
+																<CircleIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+															)}
+															<div className="min-w-0">
+																<p
+																	className={cn(
+																		"text-sm leading-snug",
+																		item.completed &&
+																			"text-muted-foreground line-through",
+																	)}
+																>
+																	{item.text}
+																</p>
+															</div>
+														</button>
+													))}
+												</div>
+											) : (
+												<div className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
+													{projectTodoFileQuery.isLoading
+														? "Loading todos..."
+														: projectTodoFileQuery.data?.exists
+															? "No markdown checklist items found in the todo file yet."
+															: "No todo file yet. Add your first task and Agents will create TODO.md in the project root."}
+												</div>
+											)}
+										</ScrollArea>
+									</div>
 								)}
 							</div>
-						</div>
+						</DockSection>
 					</div>
 				) : (
-					<div className="space-y-3 p-3">
+					<div className={cn(DOCK_SECTION_GAP, DOCK_SECTION_PADDING)}>
 						<div className="relative">
 							<SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
 							<Input

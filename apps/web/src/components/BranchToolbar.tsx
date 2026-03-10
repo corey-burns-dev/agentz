@@ -132,17 +132,24 @@ export default function BranchToolbar({
 					</Button>
 				)}
 			</div>
-
-			<BranchToolbarBranchSelector
-				activeProjectCwd={activeProject.cwd}
-				activeThreadBranch={activeThreadBranch}
-				activeWorktreePath={activeWorktreePath}
-				branchCwd={branchCwd}
-				effectiveEnvMode={effectiveEnvMode}
-				envLocked={envLocked}
-				onSetThreadBranch={setThreadBranch}
-				{...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
-			/>
+			<div className="flex min-w-0 flex-1 items-center justify-center px-4 text-center text-[11px] text-muted-foreground/70">
+				<span className="truncate">
+					Provider usage may be limited; heavy Gemini, Codex, or Claude Code
+					activity can count against 5‑hour and weekly limits.
+				</span>
+			</div>
+			<div className="flex items-center">
+				<BranchToolbarBranchSelector
+					activeProjectCwd={activeProject.cwd}
+					activeThreadBranch={activeThreadBranch}
+					activeWorktreePath={activeWorktreePath}
+					branchCwd={branchCwd}
+					effectiveEnvMode={effectiveEnvMode}
+					envLocked={envLocked}
+					onSetThreadBranch={setThreadBranch}
+					{...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
+				/>
+			</div>
 		</div>
 	);
 }

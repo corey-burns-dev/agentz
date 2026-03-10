@@ -35,6 +35,7 @@ import {
 	useComposerDraftStore,
 } from "../composerDraftStore";
 import { isDesktopShell } from "../env";
+import { useProjectThreadArchiveActions } from "../hooks/useProjectThreadArchiveActions";
 import {
 	isChatNewLocalShortcut,
 	isChatNewShortcut,
@@ -51,6 +52,10 @@ import {
 	clearProjectFaviconOverrideForKey,
 	getProjectFaviconOverrideForKey,
 } from "../projectFaviconSettings";
+import {
+	isProjectThreadArchiveActionId,
+	PROJECT_THREAD_ARCHIVE_ACTIONS,
+} from "../projectThreadArchiveActions";
 import { derivePendingApprovals } from "../session-logic";
 import { useStore } from "../store";
 import {
@@ -363,6 +368,7 @@ export default function Sidebar() {
 	const removeWorktreeMutation = useMutation(
 		gitRemoveWorktreeMutationOptions({ queryClient }),
 	);
+	const { runProjectThreadArchiveAction } = useProjectThreadArchiveActions();
 	const [addingProject, setAddingProject] = useState(false);
 	const [newCwd, setNewCwd] = useState("");
 	const [isPickingFolder, setIsPickingFolder] = useState(false);
@@ -985,11 +991,15 @@ export default function Sidebar() {
 				getProjectFaviconOverrideForKey(project.cwd) !== null;
 			const clicked = await api.contextMenu.show(
 				[
+					...PROJECT_THREAD_ARCHIVE_ACTIONS.map((action) => ({
+						id: action.id,
+						label: action.label,
+					})),
 					{ id: "choose-favicon", label: "Choose favicon..." },
 					...(hasFaviconOverride
 						? [{ id: "reset-favicon", label: "Use auto-detected favicon" }]
 						: []),
-					{ id: "delete", label: "Delete", destructive: true },
+					{ id: "delete", label: "Delete project", destructive: true },
 				],
 				position,
 			);
@@ -1007,6 +1017,12 @@ export default function Sidebar() {
 				});
 				return;
 			}
+
+			if (isProjectThreadArchiveActionId(clicked)) {
+				await runProjectThreadArchiveAction(project, clicked);
+				return;
+			}
+
 			if (clicked !== "delete") return;
 
 			const projectThreads = threads.filter(
@@ -1058,6 +1074,7 @@ export default function Sidebar() {
 			clearProjectDraftThreadId,
 			getDraftThreadByProjectId,
 			projects,
+			runProjectThreadArchiveAction,
 			threads,
 		],
 	);

@@ -10,6 +10,7 @@ export const PROJECT_TODO_FILE_CANDIDATES = [
 export interface ProjectTodoItem {
 	readonly completed: boolean;
 	readonly id: string;
+	readonly lineIndex: number;
 	readonly text: string;
 }
 
@@ -45,6 +46,7 @@ export function parseProjectTodoItems(
 			{
 				completed: match[1]?.toLowerCase() === "x",
 				id: `${lineIndex}:${text}`,
+				lineIndex,
 				text,
 			},
 		];
@@ -69,4 +71,32 @@ export function appendProjectTodoItem(
 		? `${existingContents}\n`
 		: existingContents;
 	return `${prefix}- [ ] ${trimmedTodoText}\n`;
+}
+
+export function toggleProjectTodoCompletion(
+	existingContents: string | null,
+	lineIndex: number,
+): string {
+	if (!existingContents) {
+		return existingContents ?? "";
+	}
+
+	const lines = existingContents.split(/\r?\n/);
+	if (lineIndex < 0 || lineIndex >= lines.length) {
+		return existingContents;
+	}
+
+	const line = lines[lineIndex] ?? "";
+	const match = line.match(/^(\s*[-*]\s+\[)([ xX])(\]\s+.*)$/);
+	if (!match) {
+		return existingContents;
+	}
+
+	const prefix = match[1] ?? "";
+	const current = match[2] ?? " ";
+	const suffix = match[3] ?? "";
+	const next = current.toLowerCase() === "x" ? " " : "x";
+
+	lines[lineIndex] = `${prefix}${next}${suffix}`;
+	return lines.join("\n");
 }

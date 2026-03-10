@@ -1055,15 +1055,48 @@ export function ComposerArea(props: ComposerAreaProps) {
 					) : (
 						<div className="composer-density-toolbar flex flex-wrap items-center justify-between gap-2 px-2.5 pb-2.5 sm:flex-nowrap sm:gap-0 sm:px-3 sm:pb-3">
 							<div className="chrome-density-toolbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:min-w-max sm:overflow-visible">
-								<ProviderModelPicker
-									provider={props.selectedProvider}
-									model={props.selectedModelForPickerWithCustomFallback}
-									lockedProvider={props.lockedProvider}
-									modelOptionsByProvider={props.modelOptionsByProvider}
-									availableProviders={props.availableProviders}
-									serviceTierSetting={props.selectedServiceTierSetting}
-									onProviderModelChange={props.onProviderModelSelect}
-								/>
+								<Tooltip>
+									<TooltipTrigger
+										render={
+											<ProviderModelPicker
+												provider={props.selectedProvider}
+												model={props.selectedModelForPickerWithCustomFallback}
+												lockedProvider={props.lockedProvider}
+												modelOptionsByProvider={props.modelOptionsByProvider}
+												availableProviders={props.availableProviders}
+												serviceTierSetting={props.selectedServiceTierSetting}
+												onProviderModelChange={props.onProviderModelSelect}
+											/>
+										}
+									/>
+									<TooltipPopup
+										side="top"
+										className="max-w-72 whitespace-normal"
+									>
+										{props.selectedProvider === "gemini" ? (
+											<p>
+												Gemini usage is metered and can be temporarily throttled
+												after sustained heavy use (for example, hitting 5‑hour
+												activity windows or weekly limits). If turns stay stuck
+												on “Working”, you may need to wait before sending more
+												requests.
+											</p>
+										) : props.selectedProvider === "claude-code" ? (
+											<p>
+												Claude Code usage is subject to your account&apos;s
+												limits and safety policies. Long‑running “Working”
+												states usually mean the provider is busy or enforcing
+												rate limits.
+											</p>
+										) : (
+											<p>
+												Codex usage draws from your OpenAI quota and may be
+												slowed or throttled if you approach configured limits or
+												send many large turns in a short period.
+											</p>
+										)}
+									</TooltipPopup>
+								</Tooltip>
 								{props.providerSwitchHint ? (
 									<span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
 										{props.providerSwitchHint}
