@@ -17,87 +17,84 @@ import { ServiceMap } from "effect";
 import type { CheckpointStoreError } from "../Errors.ts";
 
 export interface CaptureCheckpointInput {
-	readonly cwd: string;
-	readonly checkpointRef: CheckpointRef;
+  readonly cwd: string;
+  readonly checkpointRef: CheckpointRef;
 }
 
 export interface RestoreCheckpointInput {
-	readonly cwd: string;
-	readonly checkpointRef: CheckpointRef;
-	readonly fallbackToHead?: boolean;
+  readonly cwd: string;
+  readonly checkpointRef: CheckpointRef;
+  readonly fallbackToHead?: boolean;
 }
 
 export interface DiffCheckpointsInput {
-	readonly cwd: string;
-	readonly fromCheckpointRef: CheckpointRef;
-	readonly toCheckpointRef: CheckpointRef;
-	readonly fallbackFromToHead?: boolean;
+  readonly cwd: string;
+  readonly fromCheckpointRef: CheckpointRef;
+  readonly toCheckpointRef: CheckpointRef;
+  readonly fallbackFromToHead?: boolean;
 }
 
 export interface DeleteCheckpointRefsInput {
-	readonly cwd: string;
-	readonly checkpointRefs: ReadonlyArray<CheckpointRef>;
+  readonly cwd: string;
+  readonly checkpointRefs: ReadonlyArray<CheckpointRef>;
 }
 
 /**
  * CheckpointStoreShape - Service API for checkpoint capture/restore and diff access.
  */
 export interface CheckpointStoreShape {
-	/**
-	 * Check whether cwd is inside a Git worktree.
-	 */
-	readonly isGitRepository: (
-		cwd: string,
-	) => Effect.Effect<boolean, CheckpointStoreError>;
+  /**
+   * Check whether cwd is inside a Git worktree.
+   */
+  readonly isGitRepository: (cwd: string) => Effect.Effect<boolean, CheckpointStoreError>;
 
-	/**
-	 * Capture a checkpoint commit and store it at the provided checkpoint ref.
-	 *
-	 * Uses an isolated temporary Git index and writes a hidden ref.
-	 */
-	readonly captureCheckpoint: (
-		input: CaptureCheckpointInput,
-	) => Effect.Effect<void, CheckpointStoreError>;
+  /**
+   * Capture a checkpoint commit and store it at the provided checkpoint ref.
+   *
+   * Uses an isolated temporary Git index and writes a hidden ref.
+   */
+  readonly captureCheckpoint: (
+    input: CaptureCheckpointInput,
+  ) => Effect.Effect<void, CheckpointStoreError>;
 
-	/**
-	 * Check whether a checkpoint ref exists.
-	 */
-	readonly hasCheckpointRef: (
-		input: Omit<RestoreCheckpointInput, "fallbackToHead">,
-	) => Effect.Effect<boolean, CheckpointStoreError>;
+  /**
+   * Check whether a checkpoint ref exists.
+   */
+  readonly hasCheckpointRef: (
+    input: Omit<RestoreCheckpointInput, "fallbackToHead">,
+  ) => Effect.Effect<boolean, CheckpointStoreError>;
 
-	/**
-	 * Restore workspace/staging state to a checkpoint.
-	 *
-	 * Optionally falls back to current `HEAD` when the checkpoint ref is missing.
-	 */
-	readonly restoreCheckpoint: (
-		input: RestoreCheckpointInput,
-	) => Effect.Effect<boolean, CheckpointStoreError>;
+  /**
+   * Restore workspace/staging state to a checkpoint.
+   *
+   * Optionally falls back to current `HEAD` when the checkpoint ref is missing.
+   */
+  readonly restoreCheckpoint: (
+    input: RestoreCheckpointInput,
+  ) => Effect.Effect<boolean, CheckpointStoreError>;
 
-	/**
-	 * Compute patch diff between two checkpoint refs.
-	 *
-	 * Can optionally treat missing "from" ref as `HEAD`.
-	 */
-	readonly diffCheckpoints: (
-		input: DiffCheckpointsInput,
-	) => Effect.Effect<string, CheckpointStoreError>;
+  /**
+   * Compute patch diff between two checkpoint refs.
+   *
+   * Can optionally treat missing "from" ref as `HEAD`.
+   */
+  readonly diffCheckpoints: (
+    input: DiffCheckpointsInput,
+  ) => Effect.Effect<string, CheckpointStoreError>;
 
-	/**
-	 * Delete the provided checkpoint refs.
-	 *
-	 * Best-effort delete: missing refs are tolerated.
-	 */
-	readonly deleteCheckpointRefs: (
-		input: DeleteCheckpointRefsInput,
-	) => Effect.Effect<void, CheckpointStoreError>;
+  /**
+   * Delete the provided checkpoint refs.
+   *
+   * Best-effort delete: missing refs are tolerated.
+   */
+  readonly deleteCheckpointRefs: (
+    input: DeleteCheckpointRefsInput,
+  ) => Effect.Effect<void, CheckpointStoreError>;
 }
 
 /**
  * CheckpointStore - Service tag for checkpoint persistence and restore operations.
  */
-export class CheckpointStore extends ServiceMap.Service<
-	CheckpointStore,
-	CheckpointStoreShape
->()("agents/checkpointing/Services/CheckpointStore") {}
+export class CheckpointStore extends ServiceMap.Service<CheckpointStore, CheckpointStoreShape>()(
+  "agents/checkpointing/Services/CheckpointStore",
+) {}

@@ -41,11 +41,11 @@ The server is composed via Effect Layers in `serverLayers.ts`:
 
 ## Provider Session Models
 
-| Provider | Process model | Session persistence |
-| --- | --- | --- |
-| Codex | Long-lived JSON-RPC daemon per session | In-memory (daemon process) |
-| Gemini | Long-lived JSON-RPC daemon per session | In-memory (daemon process) |
-| Claude Code | New subprocess per turn | File-based (`~/.claude/projects/`), resumed via `--resume <session_id>` |
+| Provider    | Process model                          | Session persistence                                                     |
+| ----------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| Codex       | Long-lived JSON-RPC daemon per session | In-memory (daemon process)                                              |
+| Gemini      | Long-lived JSON-RPC daemon per session | In-memory (daemon process)                                              |
+| Claude Code | New subprocess per turn                | File-based (`~/.claude/projects/`), resumed via `--resume <session_id>` |
 
 ## Event Flow
 

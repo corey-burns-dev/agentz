@@ -11,21 +11,18 @@ import type { Effect } from "effect";
 import { ServiceMap } from "effect";
 
 export interface ProviderHealthShape {
-	/**
-	 * Read provider health statuses (cached; may be placeholder until checks complete).
-	 */
-	readonly getStatuses: Effect.Effect<ReadonlyArray<ServerProviderStatus>>;
+  /**
+   * Read provider health statuses (cached; may be placeholder until checks complete).
+   */
+  readonly getStatuses: Effect.Effect<ReadonlyArray<ServerProviderStatus>>;
 
-	/**
-	 * Register a callback to run when background health checks have completed.
-	 * Called immediately if already resolved.
-	 */
-	readonly onReady: (
-		cb: (statuses: ReadonlyArray<ServerProviderStatus>) => void,
-	) => void;
+  /**
+   * Register a callback to run when background health checks have completed.
+   * Called immediately if already resolved.
+   */
+  readonly onReady: (cb: (statuses: ReadonlyArray<ServerProviderStatus>) => void) => void;
 }
 
-export class ProviderHealth extends ServiceMap.Service<
-	ProviderHealth,
-	ProviderHealthShape
->()("agents/provider/Services/ProviderHealth") {}
+export class ProviderHealth extends ServiceMap.Service<ProviderHealth, ProviderHealthShape>()(
+  "agents/provider/Services/ProviderHealth",
+) {}

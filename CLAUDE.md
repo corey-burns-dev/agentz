@@ -37,10 +37,12 @@ Long term maintainability is a core priority. If you add new functionality, firs
 Agents supports three providers. Each is implemented as an Effect Layer in `apps/server/src/provider/Layers/`.
 
 ### Codex & Gemini
+
 - Long-lived JSON-RPC daemons spawned once per session (via `codex app-server` / `gemini app-server`).
 - Session startup/resume and turn lifecycle managed in `codexAppServerManager.ts` / `geminiAppServerManager.ts`.
 
 ### Claude Code
+
 - **Subprocess-per-turn**: spawns `claude -p --output-format stream-json` for each turn. Sessions persist via `~/.claude/projects/` (Claude CLI manages this). Session continuity is achieved by passing `--resume <session_id>` on subsequent turns.
 - Session lifecycle and state types: `claudeCodeAppServerSession.ts`
 - Manager (spawn, NDJSON stream parsing, control protocol): `claudeCodeAppServerManager.ts`
@@ -52,23 +54,24 @@ Agents supports three providers. Each is implemented as an Effect Layer in `apps
   - `approval-required`: uses lightweight stdin/stdout control protocol for tool approvals
 
 ### Provider Registration
+
 All adapters are registered in `serverLayers.ts` via `ProviderAdapterRegistryLive` and routed through `ProviderService`.
 
 ## Key Server Files
 
-| File | Role |
-|------|------|
-| `src/serverLayers.ts` | Composes all Effect Layers; registers all provider adapters |
-| `src/wsServer.ts` | WebSocket server; routes JSON-RPC methods to services |
-| `src/claudeCodeAppServerManager.ts` | Claude Code session manager (per-turn subprocess) |
-| `src/claudeCodeAppServerSession.ts` | Claude Code session types & helpers |
-| `src/claudeCodeAppServerHelpers.ts` | Claude Code pure utilities |
-| `src/provider/Layers/ClaudeCodeAdapter.ts` | Claude Code Effect adapter layer |
-| `src/provider/Layers/ProviderAdapterRegistry.ts` | In-memory adapter registry |
-| `src/orchestration/` | Domain event engine; projects runtime events → orchestration events |
-| `src/checkpointing/` | Diff tracking |
-| `src/git/` | Git operations |
-| `src/terminal/` | PTY management (Bun or node-pty) |
+| File                                             | Role                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| `src/serverLayers.ts`                            | Composes all Effect Layers; registers all provider adapters         |
+| `src/wsServer.ts`                                | WebSocket server; routes JSON-RPC methods to services               |
+| `src/claudeCodeAppServerManager.ts`              | Claude Code session manager (per-turn subprocess)                   |
+| `src/claudeCodeAppServerSession.ts`              | Claude Code session types & helpers                                 |
+| `src/claudeCodeAppServerHelpers.ts`              | Claude Code pure utilities                                          |
+| `src/provider/Layers/ClaudeCodeAdapter.ts`       | Claude Code Effect adapter layer                                    |
+| `src/provider/Layers/ProviderAdapterRegistry.ts` | In-memory adapter registry                                          |
+| `src/orchestration/`                             | Domain event engine; projects runtime events → orchestration events |
+| `src/checkpointing/`                             | Diff tracking                                                       |
+| `src/git/`                                       | Git operations                                                      |
+| `src/terminal/`                                  | PTY management (Bun or node-pty)                                    |
 
 ## Web App
 

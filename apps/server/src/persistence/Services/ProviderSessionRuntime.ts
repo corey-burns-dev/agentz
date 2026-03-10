@@ -6,10 +6,10 @@
  * @module ProviderSessionRuntimeRepository
  */
 import {
-	IsoDateTime,
-	ProviderSessionRuntimeStatus,
-	RuntimeMode,
-	ThreadId,
+  IsoDateTime,
+  ProviderSessionRuntimeStatus,
+  RuntimeMode,
+  ThreadId,
 } from "@agents/contracts";
 import type { Effect } from "effect";
 import { type Option, Schema, ServiceMap } from "effect";
@@ -17,76 +17,69 @@ import { type Option, Schema, ServiceMap } from "effect";
 import type { ProviderSessionRuntimeRepositoryError } from "../Errors.ts";
 
 export const ProviderSessionRuntime = Schema.Struct({
-	threadId: ThreadId,
-	providerName: Schema.String,
-	adapterKey: Schema.String,
-	runtimeMode: RuntimeMode,
-	status: ProviderSessionRuntimeStatus,
-	lastSeenAt: IsoDateTime,
-	resumeCursor: Schema.NullOr(Schema.Unknown),
-	runtimePayload: Schema.NullOr(Schema.Unknown),
+  threadId: ThreadId,
+  providerName: Schema.String,
+  adapterKey: Schema.String,
+  runtimeMode: RuntimeMode,
+  status: ProviderSessionRuntimeStatus,
+  lastSeenAt: IsoDateTime,
+  resumeCursor: Schema.NullOr(Schema.Unknown),
+  runtimePayload: Schema.NullOr(Schema.Unknown),
 });
 export type ProviderSessionRuntime = typeof ProviderSessionRuntime.Type;
 
 export const GetProviderSessionRuntimeInput = Schema.Struct({
-	threadId: ThreadId,
+  threadId: ThreadId,
 });
-export type GetProviderSessionRuntimeInput =
-	typeof GetProviderSessionRuntimeInput.Type;
+export type GetProviderSessionRuntimeInput = typeof GetProviderSessionRuntimeInput.Type;
 
 export const DeleteProviderSessionRuntimeInput = Schema.Struct({
-	threadId: ThreadId,
+  threadId: ThreadId,
 });
-export type DeleteProviderSessionRuntimeInput =
-	typeof DeleteProviderSessionRuntimeInput.Type;
+export type DeleteProviderSessionRuntimeInput = typeof DeleteProviderSessionRuntimeInput.Type;
 
 /**
  * ProviderSessionRuntimeRepositoryShape - Service API for provider runtime records.
  */
 export interface ProviderSessionRuntimeRepositoryShape {
-	/**
-	 * Insert or replace a provider runtime row.
-	 *
-	 * Upserts by canonical `threadId`, including JSON payload/cursor fields.
-	 */
-	readonly upsert: (
-		runtime: ProviderSessionRuntime,
-	) => Effect.Effect<void, ProviderSessionRuntimeRepositoryError>;
+  /**
+   * Insert or replace a provider runtime row.
+   *
+   * Upserts by canonical `threadId`, including JSON payload/cursor fields.
+   */
+  readonly upsert: (
+    runtime: ProviderSessionRuntime,
+  ) => Effect.Effect<void, ProviderSessionRuntimeRepositoryError>;
 
-	/**
-	 * Read provider runtime state by canonical thread id.
-	 */
-	readonly getByThreadId: (
-		input: GetProviderSessionRuntimeInput,
-	) => Effect.Effect<
-		Option.Option<ProviderSessionRuntime>,
-		ProviderSessionRuntimeRepositoryError
-	>;
+  /**
+   * Read provider runtime state by canonical thread id.
+   */
+  readonly getByThreadId: (
+    input: GetProviderSessionRuntimeInput,
+  ) => Effect.Effect<Option.Option<ProviderSessionRuntime>, ProviderSessionRuntimeRepositoryError>;
 
-	/**
-	 * List all provider runtime rows.
-	 *
-	 * Returned in ascending last-seen order.
-	 */
-	readonly list: () => Effect.Effect<
-		ReadonlyArray<ProviderSessionRuntime>,
-		ProviderSessionRuntimeRepositoryError
-	>;
+  /**
+   * List all provider runtime rows.
+   *
+   * Returned in ascending last-seen order.
+   */
+  readonly list: () => Effect.Effect<
+    ReadonlyArray<ProviderSessionRuntime>,
+    ProviderSessionRuntimeRepositoryError
+  >;
 
-	/**
-	 * Delete provider runtime state by canonical thread id.
-	 */
-	readonly deleteByThreadId: (
-		input: DeleteProviderSessionRuntimeInput,
-	) => Effect.Effect<void, ProviderSessionRuntimeRepositoryError>;
+  /**
+   * Delete provider runtime state by canonical thread id.
+   */
+  readonly deleteByThreadId: (
+    input: DeleteProviderSessionRuntimeInput,
+  ) => Effect.Effect<void, ProviderSessionRuntimeRepositoryError>;
 }
 
 /**
  * ProviderSessionRuntimeRepository - Service tag for provider runtime persistence.
  */
 export class ProviderSessionRuntimeRepository extends ServiceMap.Service<
-	ProviderSessionRuntimeRepository,
-	ProviderSessionRuntimeRepositoryShape
->()(
-	"agents/persistence/Services/ProviderSessionRuntime/ProviderSessionRuntimeRepository",
-) {}
+  ProviderSessionRuntimeRepository,
+  ProviderSessionRuntimeRepositoryShape
+>()("agents/persistence/Services/ProviderSessionRuntime/ProviderSessionRuntimeRepository") {}

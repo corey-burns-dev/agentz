@@ -37,19 +37,19 @@ import Migration0013 from "./Migrations/013_ProjectionThreadProposedPlans.ts";
  * returns migrations sorted by ID.
  */
 const loader = Migrator.fromRecord({
-	"1_OrchestrationEvents": Migration0001,
-	"2_OrchestrationCommandReceipts": Migration0002,
-	"3_CheckpointDiffBlobs": Migration0003,
-	"4_ProviderSessionRuntime": Migration0004,
-	"5_Projections": Migration0005,
-	"6_ProjectionThreadSessionRuntimeModeColumns": Migration0006,
-	"7_ProjectionThreadMessageAttachments": Migration0007,
-	"8_ProjectionThreadActivitySequence": Migration0008,
-	"9_ProviderSessionRuntimeMode": Migration0009,
-	"10_ProjectionThreadsRuntimeMode": Migration0010,
-	"11_OrchestrationThreadCreatedRuntimeMode": Migration0011,
-	"12_ProjectionThreadsInteractionMode": Migration0012,
-	"13_ProjectionThreadProposedPlans": Migration0013,
+  "1_OrchestrationEvents": Migration0001,
+  "2_OrchestrationCommandReceipts": Migration0002,
+  "3_CheckpointDiffBlobs": Migration0003,
+  "4_ProviderSessionRuntime": Migration0004,
+  "5_Projections": Migration0005,
+  "6_ProjectionThreadSessionRuntimeModeColumns": Migration0006,
+  "7_ProjectionThreadMessageAttachments": Migration0007,
+  "8_ProjectionThreadActivitySequence": Migration0008,
+  "9_ProviderSessionRuntimeMode": Migration0009,
+  "10_ProjectionThreadsRuntimeMode": Migration0010,
+  "11_OrchestrationThreadCreatedRuntimeMode": Migration0011,
+  "12_ProjectionThreadsInteractionMode": Migration0012,
+  "13_ProjectionThreadProposedPlans": Migration0013,
 });
 
 /**
@@ -69,9 +69,9 @@ const run = Migrator.make({});
  * @returns Effect containing array of executed migrations
  */
 export const runMigrations = Effect.gen(function* () {
-	yield* Effect.log("Running migrations...");
-	yield* run({ loader });
-	yield* Effect.log("Migrations ran successfully");
+  yield* Effect.log("Running migrations...");
+  yield* run({ loader });
+  yield* Effect.log("Migrations ran successfully");
 });
 
 /**

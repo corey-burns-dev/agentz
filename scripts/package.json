@@ -1,23 +1,23 @@
 {
-	"name": "@agents/scripts",
-	"private": true,
-	"type": "module",
-	"scripts": {
-		"prepare": "effect-language-service patch",
-		"typecheck": "tsc --noEmit",
-		"test": "vitest run"
-	},
-	"dependencies": {
-		"@effect/platform-node": "catalog:",
-		"@agents/contracts": "workspace:*",
-		"@agents/shared": "workspace:*",
-		"effect": "catalog:"
-	},
-	"devDependencies": {
-		"@effect/language-service": "catalog:",
-		"@effect/vitest": "catalog:",
-		"@types/bun": "catalog:",
-		"typescript": "catalog:",
-		"vitest": "catalog:"
-	}
+  "name": "@agents/scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "effect-language-service patch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agents/contracts": "workspace:*",
+    "@agents/shared": "workspace:*",
+    "@effect/platform-node": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/language-service": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
 }

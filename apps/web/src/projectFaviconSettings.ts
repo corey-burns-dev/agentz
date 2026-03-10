@@ -2,14 +2,14 @@ import { normalizeProjectRelativePath } from "@agents/shared/projectFavicon";
 import { useCallback, useSyncExternalStore } from "react";
 
 interface ProjectFaviconState {
-	byProjectKey: Record<string, string>;
-	/** Timestamp when override was set; used for cache-busting the favicon URL. */
-	setAtByKey?: Record<string, number>;
+  byProjectKey: Record<string, string>;
+  /** Timestamp when override was set; used for cache-busting the favicon URL. */
+  setAtByKey?: Record<string, number>;
 }
 
 const STORAGE_KEY = "agents:project-favicons:v1";
 const DEFAULT_STATE: ProjectFaviconState = {
-	byProjectKey: {},
+  byProjectKey: {},
 };
 
 let listeners: Array<() => void> = [];
@@ -17,196 +17,187 @@ let cachedRawState: string | null | undefined;
 let cachedSnapshot: ProjectFaviconState = DEFAULT_STATE;
 
 function emitChange(): void {
-	for (const listener of listeners) {
-		listener();
-	}
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 function parsePersistedState(raw: string | null): ProjectFaviconState {
-	if (!raw) return DEFAULT_STATE;
+  if (!raw) return DEFAULT_STATE;
 
-	try {
-		const parsed = JSON.parse(raw) as unknown;
-		if (!parsed || typeof parsed !== "object") {
-			return DEFAULT_STATE;
-		}
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") {
+      return DEFAULT_STATE;
+    }
 
-		const record = parsed as {
-			byProjectKey?: unknown;
-			setAtByKey?: unknown;
-		};
-		const byProjectKey: Record<string, string> = {};
+    const record = parsed as {
+      byProjectKey?: unknown;
+      setAtByKey?: unknown;
+    };
+    const byProjectKey: Record<string, string> = {};
 
-		if (record.byProjectKey && typeof record.byProjectKey === "object") {
-			for (const [key, value] of Object.entries(record.byProjectKey)) {
-				if (typeof key !== "string" || key.trim().length === 0) {
-					continue;
-				}
-				if (typeof value !== "string") {
-					continue;
-				}
-				const normalizedPath = normalizeProjectRelativePath(value);
-				if (normalizedPath.length === 0) {
-					continue;
-				}
-				byProjectKey[key] = normalizedPath;
-			}
-		}
+    if (record.byProjectKey && typeof record.byProjectKey === "object") {
+      for (const [key, value] of Object.entries(record.byProjectKey)) {
+        if (typeof key !== "string" || key.trim().length === 0) {
+          continue;
+        }
+        if (typeof value !== "string") {
+          continue;
+        }
+        const normalizedPath = normalizeProjectRelativePath(value);
+        if (normalizedPath.length === 0) {
+          continue;
+        }
+        byProjectKey[key] = normalizedPath;
+      }
+    }
 
-		const setAtByKey: Record<string, number> = {};
-		if (record.setAtByKey && typeof record.setAtByKey === "object") {
-			for (const [key, value] of Object.entries(record.setAtByKey)) {
-				if (typeof key !== "string" || key.trim().length === 0) continue;
-				if (typeof value !== "number" || !Number.isFinite(value)) continue;
-				setAtByKey[key] = value;
-			}
-		}
+    const setAtByKey: Record<string, number> = {};
+    if (record.setAtByKey && typeof record.setAtByKey === "object") {
+      for (const [key, value] of Object.entries(record.setAtByKey)) {
+        if (typeof key !== "string" || key.trim().length === 0) continue;
+        if (typeof value !== "number" || !Number.isFinite(value)) continue;
+        setAtByKey[key] = value;
+      }
+    }
 
-		return { byProjectKey, setAtByKey };
-	} catch {
-		return DEFAULT_STATE;
-	}
+    return { byProjectKey, setAtByKey };
+  } catch {
+    return DEFAULT_STATE;
+  }
 }
 
 function persistState(next: ProjectFaviconState): void {
-	if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
 
-	const raw = JSON.stringify(next);
-	try {
-		if (raw !== cachedRawState) {
-			window.localStorage.setItem(STORAGE_KEY, raw);
-		}
-	} catch {
-		// Best-effort only.
-	}
+  const raw = JSON.stringify(next);
+  try {
+    if (raw !== cachedRawState) {
+      window.localStorage.setItem(STORAGE_KEY, raw);
+    }
+  } catch {
+    // Best-effort only.
+  }
 
-	cachedRawState = raw;
-	cachedSnapshot = next;
+  cachedRawState = raw;
+  cachedSnapshot = next;
 }
 
 export function getProjectFaviconSettingsSnapshot(): ProjectFaviconState {
-	if (typeof window === "undefined") {
-		return DEFAULT_STATE;
-	}
+  if (typeof window === "undefined") {
+    return DEFAULT_STATE;
+  }
 
-	const raw = window.localStorage.getItem(STORAGE_KEY);
-	if (raw === cachedRawState) {
-		return cachedSnapshot;
-	}
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (raw === cachedRawState) {
+    return cachedSnapshot;
+  }
 
-	cachedRawState = raw;
-	cachedSnapshot = parsePersistedState(raw);
-	return cachedSnapshot;
+  cachedRawState = raw;
+  cachedSnapshot = parsePersistedState(raw);
+  return cachedSnapshot;
 }
 
-export function getProjectFaviconOverrideForKey(
-	projectKey: string | null,
-): string | null {
-	if (!projectKey) return null;
-	return getProjectFaviconSettingsSnapshot().byProjectKey[projectKey] ?? null;
+export function getProjectFaviconOverrideForKey(projectKey: string | null): string | null {
+  if (!projectKey) return null;
+  return getProjectFaviconSettingsSnapshot().byProjectKey[projectKey] ?? null;
 }
 
 /** Timestamp when override was set (for cache-busting). 0 if never set. */
-export function getProjectFaviconSetAtForKey(
-	projectKey: string | null,
-): number {
-	if (!projectKey) return 0;
-	return getProjectFaviconSettingsSnapshot().setAtByKey?.[projectKey] ?? 0;
+export function getProjectFaviconSetAtForKey(projectKey: string | null): number {
+  if (!projectKey) return 0;
+  return getProjectFaviconSettingsSnapshot().setAtByKey?.[projectKey] ?? 0;
 }
 
-export function setProjectFaviconOverrideForKey(
-	projectKey: string,
-	relativePath: string,
-): void {
-	if (!projectKey || projectKey.trim().length === 0) return;
+export function setProjectFaviconOverrideForKey(projectKey: string, relativePath: string): void {
+  if (!projectKey || projectKey.trim().length === 0) return;
 
-	const normalizedPath = normalizeProjectRelativePath(relativePath);
-	if (normalizedPath.length === 0) return;
+  const normalizedPath = normalizeProjectRelativePath(relativePath);
+  if (normalizedPath.length === 0) return;
 
-	const current = getProjectFaviconSettingsSnapshot();
-	const next: ProjectFaviconState = {
-		byProjectKey: {
-			...current.byProjectKey,
-			[projectKey]: normalizedPath,
-		},
-		setAtByKey: {
-			...current.setAtByKey,
-			[projectKey]: Date.now(),
-		},
-	};
+  const current = getProjectFaviconSettingsSnapshot();
+  const next: ProjectFaviconState = {
+    byProjectKey: {
+      ...current.byProjectKey,
+      [projectKey]: normalizedPath,
+    },
+    setAtByKey: {
+      ...current.setAtByKey,
+      [projectKey]: Date.now(),
+    },
+  };
 
-	persistState(next);
-	emitChange();
+  persistState(next);
+  emitChange();
 }
 
 export function clearProjectFaviconOverrideForKey(projectKey: string): void {
-	if (!projectKey || projectKey.trim().length === 0) return;
+  if (!projectKey || projectKey.trim().length === 0) return;
 
-	const current = getProjectFaviconSettingsSnapshot();
-	if (!(projectKey in current.byProjectKey)) {
-		return;
-	}
+  const current = getProjectFaviconSettingsSnapshot();
+  if (!(projectKey in current.byProjectKey)) {
+    return;
+  }
 
-	const nextByProjectKey = { ...current.byProjectKey };
-	delete nextByProjectKey[projectKey];
-	const nextSetAtByKey = { ...current.setAtByKey };
-	delete nextSetAtByKey[projectKey];
-	persistState({ byProjectKey: nextByProjectKey, setAtByKey: nextSetAtByKey });
-	emitChange();
+  const nextByProjectKey = { ...current.byProjectKey };
+  delete nextByProjectKey[projectKey];
+  const nextSetAtByKey = { ...current.setAtByKey };
+  delete nextSetAtByKey[projectKey];
+  persistState({ byProjectKey: nextByProjectKey, setAtByKey: nextSetAtByKey });
+  emitChange();
 }
 
 function subscribe(listener: () => void): () => void {
-	listeners.push(listener);
+  listeners.push(listener);
 
-	if (typeof window === "undefined") {
-		return () => {
-			listeners = listeners.filter((entry) => entry !== listener);
-		};
-	}
+  if (typeof window === "undefined") {
+    return () => {
+      listeners = listeners.filter((entry) => entry !== listener);
+    };
+  }
 
-	const onStorage = (event: StorageEvent) => {
-		if (event.key === STORAGE_KEY) {
-			emitChange();
-		}
-	};
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) {
+      emitChange();
+    }
+  };
 
-	window.addEventListener("storage", onStorage);
+  window.addEventListener("storage", onStorage);
 
-	return () => {
-		listeners = listeners.filter((entry) => entry !== listener);
-		window.removeEventListener("storage", onStorage);
-	};
+  return () => {
+    listeners = listeners.filter((entry) => entry !== listener);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
 export function useProjectFaviconOverride(projectKey: string | null) {
-	const state = useSyncExternalStore(
-		subscribe,
-		getProjectFaviconSettingsSnapshot,
-		() => DEFAULT_STATE,
-	);
+  const state = useSyncExternalStore(
+    subscribe,
+    getProjectFaviconSettingsSnapshot,
+    () => DEFAULT_STATE,
+  );
 
-	const relativePath = projectKey
-		? (state.byProjectKey[projectKey] ?? null)
-		: null;
-	const setAt = projectKey ? (state.setAtByKey?.[projectKey] ?? 0) : 0;
+  const relativePath = projectKey ? (state.byProjectKey[projectKey] ?? null) : null;
+  const setAt = projectKey ? (state.setAtByKey?.[projectKey] ?? 0) : 0;
 
-	const setOverride = useCallback(
-		(nextRelativePath: string) => {
-			if (!projectKey) return;
-			setProjectFaviconOverrideForKey(projectKey, nextRelativePath);
-		},
-		[projectKey],
-	);
+  const setOverride = useCallback(
+    (nextRelativePath: string) => {
+      if (!projectKey) return;
+      setProjectFaviconOverrideForKey(projectKey, nextRelativePath);
+    },
+    [projectKey],
+  );
 
-	const clearOverride = useCallback(() => {
-		if (!projectKey) return;
-		clearProjectFaviconOverrideForKey(projectKey);
-	}, [projectKey]);
+  const clearOverride = useCallback(() => {
+    if (!projectKey) return;
+    clearProjectFaviconOverrideForKey(projectKey);
+  }, [projectKey]);
 
-	return {
-		relativePath,
-		setAt,
-		setOverride,
-		clearOverride,
-	} as const;
+  return {
+    relativePath,
+    setAt,
+    setOverride,
+    clearOverride,
+  } as const;
 }

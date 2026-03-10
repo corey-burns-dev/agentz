@@ -1,11 +1,4 @@
-import {
-	CheckpointRef,
-	EventId,
-	MessageId,
-	ProjectId,
-	ThreadId,
-	TurnId,
-} from "@agents/contracts";
+import { CheckpointRef, EventId, MessageId, ProjectId, ThreadId, TurnId } from "@agents/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -19,28 +12,23 @@ const asProjectId = (value: string): ProjectId => ProjectId.makeUnsafe(value);
 const asTurnId = (value: string): TurnId => TurnId.makeUnsafe(value);
 const asMessageId = (value: string): MessageId => MessageId.makeUnsafe(value);
 const asEventId = (value: string): EventId => EventId.makeUnsafe(value);
-const asCheckpointRef = (value: string): CheckpointRef =>
-	CheckpointRef.makeUnsafe(value);
+const asCheckpointRef = (value: string): CheckpointRef => CheckpointRef.makeUnsafe(value);
 
 const projectionSnapshotLayer = it.layer(
-	OrchestrationProjectionSnapshotQueryLive.pipe(
-		Layer.provideMerge(SqlitePersistenceMemory),
-	),
+  OrchestrationProjectionSnapshotQueryLive.pipe(Layer.provideMerge(SqlitePersistenceMemory)),
 );
 
 projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
-	it.effect(
-		"hydrates read model from projection tables and computes snapshot sequence",
-		() =>
-			Effect.gen(function* () {
-				const snapshotQuery = yield* ProjectionSnapshotQuery;
-				const sql = yield* SqlClient.SqlClient;
+  it.effect("hydrates read model from projection tables and computes snapshot sequence", () =>
+    Effect.gen(function* () {
+      const snapshotQuery = yield* ProjectionSnapshotQuery;
+      const sql = yield* SqlClient.SqlClient;
 
-				yield* sql`DELETE FROM projection_projects`;
-				yield* sql`DELETE FROM projection_state`;
-				yield* sql`DELETE FROM projection_turns`;
+      yield* sql`DELETE FROM projection_projects`;
+      yield* sql`DELETE FROM projection_state`;
+      yield* sql`DELETE FROM projection_turns`;
 
-				yield* sql`
+      yield* sql`
         INSERT INTO projection_projects (
           project_id,
           title,
@@ -63,7 +51,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         )
       `;
 
-				yield* sql`
+      yield* sql`
         INSERT INTO projection_threads (
           thread_id,
           project_id,
@@ -90,7 +78,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         )
       `;
 
-				yield* sql`
+      yield* sql`
         INSERT INTO projection_thread_messages (
           message_id,
           thread_id,
@@ -113,7 +101,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         )
       `;
 
-				yield* sql`
+      yield* sql`
         INSERT INTO projection_thread_activities (
           activity_id,
           thread_id,
@@ -136,7 +124,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         )
       `;
 
-				yield* sql`
+      yield* sql`
         INSERT INTO projection_thread_sessions (
           thread_id,
           status,
@@ -161,7 +149,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         )
       `;
 
-				yield* sql`
+      yield* sql`
         INSERT INTO projection_turns (
           thread_id,
           turn_id,
@@ -192,9 +180,9 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         )
       `;
 
-				let sequence = 5;
-				for (const projector of Object.values(ORCHESTRATION_PROJECTOR_NAMES)) {
-					yield* sql`
+      let sequence = 5;
+      for (const projector of Object.values(ORCHESTRATION_PROJECTOR_NAMES)) {
+        yield* sql`
           INSERT INTO projection_state (
             projector,
             last_applied_sequence,
@@ -206,106 +194,106 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
             '2026-02-24T00:00:09.000Z'
           )
         `;
-					sequence += 1;
-				}
+        sequence += 1;
+      }
 
-				const snapshot = yield* snapshotQuery.getSnapshot();
+      const snapshot = yield* snapshotQuery.getSnapshot();
 
-				assert.equal(snapshot.snapshotSequence, 5);
-				assert.equal(snapshot.updatedAt, "2026-02-24T00:00:09.000Z");
-				assert.deepEqual(snapshot.projects, [
-					{
-						id: asProjectId("project-1"),
-						title: "Project 1",
-						workspaceRoot: "/tmp/project-1",
-						defaultModel: "gpt-5-codex",
-						scripts: [
-							{
-								id: "script-1",
-								name: "Build",
-								command: "bun run build",
-								icon: "build",
-								runOnWorktreeCreate: false,
-							},
-						],
-						createdAt: "2026-02-24T00:00:00.000Z",
-						updatedAt: "2026-02-24T00:00:01.000Z",
-						deletedAt: null,
-					},
-				]);
-				assert.deepEqual(snapshot.threads, [
-					{
-						id: ThreadId.makeUnsafe("thread-1"),
-						projectId: asProjectId("project-1"),
-						title: "Thread 1",
-						model: "gpt-5-codex",
-						interactionMode: "default",
-						runtimeMode: "full-access",
-						branch: null,
-						worktreePath: null,
-						latestTurn: {
-							turnId: asTurnId("turn-1"),
-							state: "completed",
-							requestedAt: "2026-02-24T00:00:08.000Z",
-							startedAt: "2026-02-24T00:00:08.000Z",
-							completedAt: "2026-02-24T00:00:08.000Z",
-							assistantMessageId: asMessageId("message-1"),
-						},
-						createdAt: "2026-02-24T00:00:02.000Z",
-						updatedAt: "2026-02-24T00:00:03.000Z",
-						deletedAt: null,
-						messages: [
-							{
-								id: asMessageId("message-1"),
-								role: "assistant",
-								text: "hello from projection",
-								turnId: asTurnId("turn-1"),
-								streaming: false,
-								createdAt: "2026-02-24T00:00:04.000Z",
-								updatedAt: "2026-02-24T00:00:05.000Z",
-							},
-						],
-						proposedPlans: [],
-						activities: [
-							{
-								id: asEventId("activity-1"),
-								tone: "info",
-								kind: "runtime.note",
-								summary: "provider started",
-								payload: { stage: "start" },
-								turnId: asTurnId("turn-1"),
-								createdAt: "2026-02-24T00:00:06.000Z",
-							},
-						],
-						checkpoints: [
-							{
-								turnId: asTurnId("turn-1"),
-								checkpointTurnCount: 1,
-								checkpointRef: asCheckpointRef("checkpoint-1"),
-								status: "ready",
-								files: [
-									{
-										path: "README.md",
-										kind: "modified",
-										additions: 2,
-										deletions: 1,
-									},
-								],
-								assistantMessageId: asMessageId("message-1"),
-								completedAt: "2026-02-24T00:00:08.000Z",
-							},
-						],
-						session: {
-							threadId: ThreadId.makeUnsafe("thread-1"),
-							status: "running",
-							providerName: "codex",
-							runtimeMode: "approval-required",
-							activeTurnId: asTurnId("turn-1"),
-							lastError: null,
-							updatedAt: "2026-02-24T00:00:07.000Z",
-						},
-					},
-				]);
-			}),
-	);
+      assert.equal(snapshot.snapshotSequence, 5);
+      assert.equal(snapshot.updatedAt, "2026-02-24T00:00:09.000Z");
+      assert.deepEqual(snapshot.projects, [
+        {
+          id: asProjectId("project-1"),
+          title: "Project 1",
+          workspaceRoot: "/tmp/project-1",
+          defaultModel: "gpt-5-codex",
+          scripts: [
+            {
+              id: "script-1",
+              name: "Build",
+              command: "bun run build",
+              icon: "build",
+              runOnWorktreeCreate: false,
+            },
+          ],
+          createdAt: "2026-02-24T00:00:00.000Z",
+          updatedAt: "2026-02-24T00:00:01.000Z",
+          deletedAt: null,
+        },
+      ]);
+      assert.deepEqual(snapshot.threads, [
+        {
+          id: ThreadId.makeUnsafe("thread-1"),
+          projectId: asProjectId("project-1"),
+          title: "Thread 1",
+          model: "gpt-5-codex",
+          interactionMode: "default",
+          runtimeMode: "full-access",
+          branch: null,
+          worktreePath: null,
+          latestTurn: {
+            turnId: asTurnId("turn-1"),
+            state: "completed",
+            requestedAt: "2026-02-24T00:00:08.000Z",
+            startedAt: "2026-02-24T00:00:08.000Z",
+            completedAt: "2026-02-24T00:00:08.000Z",
+            assistantMessageId: asMessageId("message-1"),
+          },
+          createdAt: "2026-02-24T00:00:02.000Z",
+          updatedAt: "2026-02-24T00:00:03.000Z",
+          deletedAt: null,
+          messages: [
+            {
+              id: asMessageId("message-1"),
+              role: "assistant",
+              text: "hello from projection",
+              turnId: asTurnId("turn-1"),
+              streaming: false,
+              createdAt: "2026-02-24T00:00:04.000Z",
+              updatedAt: "2026-02-24T00:00:05.000Z",
+            },
+          ],
+          proposedPlans: [],
+          activities: [
+            {
+              id: asEventId("activity-1"),
+              tone: "info",
+              kind: "runtime.note",
+              summary: "provider started",
+              payload: { stage: "start" },
+              turnId: asTurnId("turn-1"),
+              createdAt: "2026-02-24T00:00:06.000Z",
+            },
+          ],
+          checkpoints: [
+            {
+              turnId: asTurnId("turn-1"),
+              checkpointTurnCount: 1,
+              checkpointRef: asCheckpointRef("checkpoint-1"),
+              status: "ready",
+              files: [
+                {
+                  path: "README.md",
+                  kind: "modified",
+                  additions: 2,
+                  deletions: 1,
+                },
+              ],
+              assistantMessageId: asMessageId("message-1"),
+              completedAt: "2026-02-24T00:00:08.000Z",
+            },
+          ],
+          session: {
+            threadId: ThreadId.makeUnsafe("thread-1"),
+            status: "running",
+            providerName: "codex",
+            runtimeMode: "approval-required",
+            activeTurnId: asTurnId("turn-1"),
+            lastError: null,
+            updatedAt: "2026-02-24T00:00:07.000Z",
+          },
+        },
+      ]);
+    }),
+  );
 });

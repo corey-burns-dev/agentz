@@ -18,15 +18,13 @@ import type { ProviderAdapterShape } from "./ProviderAdapter.ts";
 /**
  * CodexAdapterShape - Service API for the Codex provider adapter.
  */
-export interface CodexAdapterShape
-	extends ProviderAdapterShape<ProviderAdapterError> {
-	readonly provider: "codex";
+export interface CodexAdapterShape extends ProviderAdapterShape<ProviderAdapterError> {
+  readonly provider: "codex";
 }
 
 /**
  * CodexAdapter - Service tag for Codex provider adapter operations.
  */
-export class CodexAdapter extends ServiceMap.Service<
-	CodexAdapter,
-	CodexAdapterShape
->()("agents/provider/Services/CodexAdapter") {}
+export class CodexAdapter extends ServiceMap.Service<CodexAdapter, CodexAdapterShape>()(
+  "agents/provider/Services/CodexAdapter",
+) {}

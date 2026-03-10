@@ -16,29 +16,27 @@ import type { ProjectionRepositoryError } from "../../persistence/Errors.ts";
  * OrchestrationProjectionPipelineShape - Service API for projection execution.
  */
 export interface OrchestrationProjectionPipelineShape {
-	/**
-	 * Bootstrap projections by replaying persisted events.
-	 *
-	 * Resumes each projector from its stored projection-state cursor.
-	 */
-	readonly bootstrap: Effect.Effect<void, ProjectionRepositoryError>;
+  /**
+   * Bootstrap projections by replaying persisted events.
+   *
+   * Resumes each projector from its stored projection-state cursor.
+   */
+  readonly bootstrap: Effect.Effect<void, ProjectionRepositoryError>;
 
-	/**
-	 * Project a single orchestration event into projection repositories.
-	 *
-	 * Projectors are executed sequentially to preserve deterministic ordering.
-	 */
-	readonly projectEvent: (
-		event: OrchestrationEvent,
-	) => Effect.Effect<void, ProjectionRepositoryError>;
+  /**
+   * Project a single orchestration event into projection repositories.
+   *
+   * Projectors are executed sequentially to preserve deterministic ordering.
+   */
+  readonly projectEvent: (
+    event: OrchestrationEvent,
+  ) => Effect.Effect<void, ProjectionRepositoryError>;
 }
 
 /**
  * OrchestrationProjectionPipeline - Service tag for orchestration projections.
  */
 export class OrchestrationProjectionPipeline extends ServiceMap.Service<
-	OrchestrationProjectionPipeline,
-	OrchestrationProjectionPipelineShape
->()(
-	"agents/orchestration/Services/ProjectionPipeline/OrchestrationProjectionPipeline",
-) {}
+  OrchestrationProjectionPipeline,
+  OrchestrationProjectionPipelineShape
+>()("agents/orchestration/Services/ProjectionPipeline/OrchestrationProjectionPipeline") {}

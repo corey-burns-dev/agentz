@@ -1,26 +1,26 @@
 {
-	"name": "@agents/desktop",
-	"version": "0.0.4-alpha.1",
-	"private": true,
-	"scripts": {
-		"dev": "node scripts/wait-then-tauri-dev.mjs",
-		"build": "node scripts/run-tauri.mjs build",
-		"build:no-bundle": "node scripts/run-tauri.mjs build --no-bundle",
-		"start": "node scripts/run-tauri.mjs run",
-		"typecheck": "tsc --noEmit",
-		"test": "vitest run --passWithNoTests",
-		"smoke-test": "node scripts/smoke-test.mjs"
-	},
-	"dependencies": {
-		"@tauri-apps/api": "^2"
-	},
-	"devDependencies": {
-		"@tauri-apps/cli": "^2",
-		"@agents/contracts": "workspace:*",
-		"@agents/shared": "workspace:*",
-		"@types/node": "catalog:",
-		"typescript": "catalog:",
-		"vitest": "catalog:"
-	},
-	"productName": "Agents (Alpha)"
+  "name": "@agents/desktop",
+  "version": "0.0.4-alpha.1",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/wait-then-tauri-dev.mjs",
+    "build": "node scripts/run-tauri.mjs build",
+    "build:no-bundle": "node scripts/run-tauri.mjs build --no-bundle",
+    "start": "node scripts/run-tauri.mjs run",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "smoke-test": "node scripts/smoke-test.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2"
+  },
+  "devDependencies": {
+    "@agents/contracts": "workspace:*",
+    "@agents/shared": "workspace:*",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "productName": "Agents (Alpha)"
 }

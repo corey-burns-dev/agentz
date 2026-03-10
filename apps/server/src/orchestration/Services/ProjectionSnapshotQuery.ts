@@ -16,22 +16,19 @@ import type { ProjectionRepositoryError } from "../../persistence/Errors.ts";
  * ProjectionSnapshotQueryShape - Service API for read-model snapshots.
  */
 export interface ProjectionSnapshotQueryShape {
-	/**
-	 * Read the latest orchestration projection snapshot.
-	 *
-	 * Rehydrates from projection tables and derives snapshot sequence from
-	 * projector cursor state.
-	 */
-	readonly getSnapshot: () => Effect.Effect<
-		OrchestrationReadModel,
-		ProjectionRepositoryError
-	>;
+  /**
+   * Read the latest orchestration projection snapshot.
+   *
+   * Rehydrates from projection tables and derives snapshot sequence from
+   * projector cursor state.
+   */
+  readonly getSnapshot: () => Effect.Effect<OrchestrationReadModel, ProjectionRepositoryError>;
 }
 
 /**
  * ProjectionSnapshotQuery - Service tag for projection snapshot queries.
  */
 export class ProjectionSnapshotQuery extends ServiceMap.Service<
-	ProjectionSnapshotQuery,
-	ProjectionSnapshotQueryShape
+  ProjectionSnapshotQuery,
+  ProjectionSnapshotQueryShape
 >()("agents/orchestration/Services/ProjectionSnapshotQuery") {}

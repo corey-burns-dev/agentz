@@ -18,15 +18,13 @@ import type { ProviderAdapterShape } from "./ProviderAdapter.ts";
 /**
  * GeminiAdapterShape - Service API for the Gemini provider adapter.
  */
-export interface GeminiAdapterShape
-	extends ProviderAdapterShape<ProviderAdapterError> {
-	readonly provider: "gemini";
+export interface GeminiAdapterShape extends ProviderAdapterShape<ProviderAdapterError> {
+  readonly provider: "gemini";
 }
 
 /**
  * GeminiAdapter - Service tag for Gemini provider adapter operations.
  */
-export class GeminiAdapter extends ServiceMap.Service<
-	GeminiAdapter,
-	GeminiAdapterShape
->()("agents/provider/Services/GeminiAdapter") {}
+export class GeminiAdapter extends ServiceMap.Service<GeminiAdapter, GeminiAdapterShape>()(
+  "agents/provider/Services/GeminiAdapter",
+) {}

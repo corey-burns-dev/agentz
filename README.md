@@ -48,7 +48,7 @@ From the repository root, you can use the following commands:
   bun run build:desktop
   ```
 
-  *Outputs will be located under `apps/desktop/tauri/src-tauri/target/release/` (or `target/debug/` for dev builds).*
+  _Outputs will be located under `apps/desktop/tauri/src-tauri/target/release/` (or `target/debug/` for dev builds)._
 
 ### Flatpak (Linux)
 
@@ -94,7 +94,7 @@ From the repository root:
   bun run build:qt6
   ```
 
-  *The Qt executable is built under `apps/desktop/qt6/build/`.*
+  _The Qt executable is built under `apps/desktop/qt6/build/`._
 
 ### Running via CLI / Web
 

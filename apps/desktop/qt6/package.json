@@ -1,12 +1,12 @@
 {
-	"name": "@agents/qt6",
-	"version": "0.0.4-alpha.1",
-	"private": true,
-	"scripts": {
-		"build": "node scripts/cmake-build.mjs",
-		"dev": "node scripts/wait-then-qt-dev.mjs",
-		"start": "node scripts/run-qt.mjs",
-		"typecheck": "echo 'No TypeScript in qt6 app'",
-		"test": "echo 'No tests for qt6 app'"
-	}
+  "name": "@agents/qt6",
+  "version": "0.0.4-alpha.1",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/cmake-build.mjs",
+    "dev": "node scripts/wait-then-qt-dev.mjs",
+    "start": "node scripts/run-qt.mjs",
+    "typecheck": "echo 'No TypeScript in qt6 app'",
+    "test": "echo 'No tests for qt6 app'"
+  }
 }

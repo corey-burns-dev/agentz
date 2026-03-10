@@ -19,41 +19,38 @@ import type { OrchestrationEventStoreError } from "../Errors.ts";
  * OrchestrationEventStoreShape - Service API for orchestration event persistence.
  */
 export interface OrchestrationEventStoreShape {
-	/**
-	 * Persist a new orchestration event.
-	 *
-	 * @param event - Event payload without sequence (assigned by storage).
-	 * @returns Effect containing the stored event with assigned sequence.
-	 *
-	 * Actor kind is inferred from command/metadata before persistence.
-	 */
-	readonly append: (
-		event: Omit<OrchestrationEvent, "sequence">,
-	) => Effect.Effect<OrchestrationEvent, OrchestrationEventStoreError>;
+  /**
+   * Persist a new orchestration event.
+   *
+   * @param event - Event payload without sequence (assigned by storage).
+   * @returns Effect containing the stored event with assigned sequence.
+   *
+   * Actor kind is inferred from command/metadata before persistence.
+   */
+  readonly append: (
+    event: Omit<OrchestrationEvent, "sequence">,
+  ) => Effect.Effect<OrchestrationEvent, OrchestrationEventStoreError>;
 
-	/**
-	 * Replay events after the provided sequence.
-	 *
-	 * @param sequenceExclusive - Sequence cursor (exclusive).
-	 * @param limit - Maximum number of events to emit.
-	 * @returns Stream containing ordered events.
-	 *
-	 * Reads in fixed-size pages and normalizes non-integer/negative limits.
-	 */
-	readonly readFromSequence: (
-		sequenceExclusive: number,
-		limit?: number,
-	) => Stream.Stream<OrchestrationEvent, OrchestrationEventStoreError>;
+  /**
+   * Replay events after the provided sequence.
+   *
+   * @param sequenceExclusive - Sequence cursor (exclusive).
+   * @param limit - Maximum number of events to emit.
+   * @returns Stream containing ordered events.
+   *
+   * Reads in fixed-size pages and normalizes non-integer/negative limits.
+   */
+  readonly readFromSequence: (
+    sequenceExclusive: number,
+    limit?: number,
+  ) => Stream.Stream<OrchestrationEvent, OrchestrationEventStoreError>;
 
-	/**
-	 * Read all events from the beginning of the stream.
-	 *
-	 * @returns Stream containing all stored events.
-	 */
-	readonly readAll: () => Stream.Stream<
-		OrchestrationEvent,
-		OrchestrationEventStoreError
-	>;
+  /**
+   * Read all events from the beginning of the stream.
+   *
+   * @returns Stream containing all stored events.
+   */
+  readonly readAll: () => Stream.Stream<OrchestrationEvent, OrchestrationEventStoreError>;
 }
 
 /**
@@ -68,6 +65,6 @@ export interface OrchestrationEventStoreShape {
  * ```
  */
 export class OrchestrationEventStore extends ServiceMap.Service<
-	OrchestrationEventStore,
-	OrchestrationEventStoreShape
+  OrchestrationEventStore,
+  OrchestrationEventStoreShape
 >()("agents/persistence/Services/OrchestrationEventStore") {}

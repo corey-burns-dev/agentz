@@ -7,12 +7,12 @@
  * @module GitManager
  */
 import type {
-	GitListIssuesInput,
-	GitListIssuesResult,
-	GitRunStackedActionInput,
-	GitRunStackedActionResult,
-	GitStatusInput,
-	GitStatusResult,
+  GitListIssuesInput,
+  GitListIssuesResult,
+  GitRunStackedActionInput,
+  GitRunStackedActionResult,
+  GitStatusInput,
+  GitStatusResult,
 } from "@agents/contracts";
 import type { Effect } from "effect";
 import { ServiceMap } from "effect";
@@ -22,33 +22,32 @@ import type { GitManagerServiceError } from "../Errors.ts";
  * GitManagerShape - Service API for high-level Git workflow actions.
  */
 export interface GitManagerShape {
-	/**
-	 * Read current repository Git status plus open PR metadata when available.
-	 */
-	readonly status: (
-		input: GitStatusInput,
-	) => Effect.Effect<GitStatusResult, GitManagerServiceError>;
+  /**
+   * Read current repository Git status plus open PR metadata when available.
+   */
+  readonly status: (
+    input: GitStatusInput,
+  ) => Effect.Effect<GitStatusResult, GitManagerServiceError>;
 
-	/**
-	 * List recent GitHub issues for the repository when available.
-	 */
-	readonly listIssues: (
-		input: GitListIssuesInput,
-	) => Effect.Effect<GitListIssuesResult, GitManagerServiceError>;
+  /**
+   * List recent GitHub issues for the repository when available.
+   */
+  readonly listIssues: (
+    input: GitListIssuesInput,
+  ) => Effect.Effect<GitListIssuesResult, GitManagerServiceError>;
 
-	/**
-	 * Run a stacked Git action (`commit`, `commit_push`, `commit_push_pr`).
-	 * When `featureBranch` is set, creates and checks out a feature branch first.
-	 */
-	readonly runStackedAction: (
-		input: GitRunStackedActionInput,
-	) => Effect.Effect<GitRunStackedActionResult, GitManagerServiceError>;
+  /**
+   * Run a stacked Git action (`commit`, `commit_push`, `commit_push_pr`).
+   * When `featureBranch` is set, creates and checks out a feature branch first.
+   */
+  readonly runStackedAction: (
+    input: GitRunStackedActionInput,
+  ) => Effect.Effect<GitRunStackedActionResult, GitManagerServiceError>;
 }
 
 /**
  * GitManager - Service tag for stacked Git workflow orchestration.
  */
-export class GitManager extends ServiceMap.Service<
-	GitManager,
-	GitManagerShape
->()("agents/git/Services/GitManager") {}
+export class GitManager extends ServiceMap.Service<GitManager, GitManagerShape>()(
+  "agents/git/Services/GitManager",
+) {}

@@ -14,22 +14,22 @@ import { ServiceMap } from "effect";
  * ProviderCommandReactorShape - Service API for provider command reactors.
  */
 export interface ProviderCommandReactorShape {
-	/**
-	 * Start reacting to provider-intent orchestration domain events.
-	 *
-	 * The returned effect must be run in a scope so all worker fibers can be
-	 * finalized on shutdown.
-	 *
-	 * Filters orchestration domain events to provider-intent types before
-	 * processing.
-	 */
-	readonly start: Effect.Effect<void, never, Scope.Scope>;
+  /**
+   * Start reacting to provider-intent orchestration domain events.
+   *
+   * The returned effect must be run in a scope so all worker fibers can be
+   * finalized on shutdown.
+   *
+   * Filters orchestration domain events to provider-intent types before
+   * processing.
+   */
+  readonly start: Effect.Effect<void, never, Scope.Scope>;
 }
 
 /**
  * ProviderCommandReactor - Service tag for provider command reaction workers.
  */
 export class ProviderCommandReactor extends ServiceMap.Service<
-	ProviderCommandReactor,
-	ProviderCommandReactorShape
+  ProviderCommandReactor,
+  ProviderCommandReactorShape
 >()("agents/orchestration/Services/ProviderCommandReactor") {}

@@ -16,10 +16,10 @@ Methods mirror the `NativeApi` interface defined in `@agents/contracts`:
 
 Three providers are fully implemented:
 
-| Provider | Kind | Process model |
-| --- | --- | --- |
-| Codex | `codex` | Long-lived JSON-RPC daemon (`codex app-server`) |
-| Gemini | `gemini` | Long-lived JSON-RPC daemon (`gemini app-server`) |
+| Provider    | Kind          | Process model                                                     |
+| ----------- | ------------- | ----------------------------------------------------------------- |
+| Codex       | `codex`       | Long-lived JSON-RPC daemon (`codex app-server`)                   |
+| Gemini      | `gemini`      | Long-lived JSON-RPC daemon (`gemini app-server`)                  |
 | Claude Code | `claude-code` | New subprocess per turn (`claude -p --output-format stream-json`) |
 
 ## Claude Code specifics
@@ -42,7 +42,7 @@ const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
   Layer.provide(geminiAdapterLayer),
   Layer.provide(claudeCodeAdapterLayer),
   Layer.provideMerge(providerSessionDirectoryLayer),
-)
+);
 ```
 
 ## Runtime event mapping

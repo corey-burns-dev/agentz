@@ -11,38 +11,32 @@ import type { ProviderKind } from "@agents/contracts";
 import type { Effect } from "effect";
 import { ServiceMap } from "effect";
 
-import type {
-	ProviderAdapterError,
-	ProviderUnsupportedError,
-} from "../Errors.ts";
+import type { ProviderAdapterError, ProviderUnsupportedError } from "../Errors.ts";
 import type { ProviderAdapterShape } from "./ProviderAdapter.ts";
 
 /**
  * ProviderAdapterRegistryShape - Service API for adapter lookup by provider kind.
  */
 export interface ProviderAdapterRegistryShape {
-	/**
-	 * Resolve the adapter for a provider kind.
-	 */
-	readonly getByProvider: (
-		provider: ProviderKind,
-	) => Effect.Effect<
-		ProviderAdapterShape<ProviderAdapterError>,
-		ProviderUnsupportedError
-	>;
+  /**
+   * Resolve the adapter for a provider kind.
+   */
+  readonly getByProvider: (
+    provider: ProviderKind,
+  ) => Effect.Effect<ProviderAdapterShape<ProviderAdapterError>, ProviderUnsupportedError>;
 
-	/**
-	 * List provider kinds currently registered.
-	 */
-	readonly listProviders: () => Effect.Effect<ReadonlyArray<ProviderKind>>;
+  /**
+   * List provider kinds currently registered.
+   */
+  readonly listProviders: () => Effect.Effect<ReadonlyArray<ProviderKind>>;
 }
 
 /**
  * ProviderAdapterRegistry - Service tag for provider adapter lookup.
  */
 export class ProviderAdapterRegistry extends ServiceMap.Service<
-	ProviderAdapterRegistry,
-	ProviderAdapterRegistryShape
+  ProviderAdapterRegistry,
+  ProviderAdapterRegistryShape
 >()("agents/provider/Services/ProviderAdapterRegistry") {}
 
 // Dummy comment for workflow testing.

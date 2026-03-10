@@ -9,26 +9,25 @@
 import { Effect, Layer, ServiceMap } from "effect";
 
 export interface AnalyticsServiceShape {
-	/**
-	 * Capture an event immediately; returns typed failure when capture fails.
-	 */
-	readonly record: (
-		event: string,
-		properties?: Readonly<Record<string, unknown>>,
-	) => Effect.Effect<void, never>;
+  /**
+   * Capture an event immediately; returns typed failure when capture fails.
+   */
+  readonly record: (
+    event: string,
+    properties?: Readonly<Record<string, unknown>>,
+  ) => Effect.Effect<void, never>;
 
-	/**
-	 * Flush queued telemetry.
-	 */
-	readonly flush: Effect.Effect<void, never>;
+  /**
+   * Flush queued telemetry.
+   */
+  readonly flush: Effect.Effect<void, never>;
 }
 
-export class AnalyticsService extends ServiceMap.Service<
-	AnalyticsService,
-	AnalyticsServiceShape
->()("agents/telemetry/Services/AnalyticsService") {
-	static readonly layerTest = Layer.succeed(AnalyticsService, {
-		record: () => Effect.void,
-		flush: Effect.void,
-	});
+export class AnalyticsService extends ServiceMap.Service<AnalyticsService, AnalyticsServiceShape>()(
+  "agents/telemetry/Services/AnalyticsService",
+) {
+  static readonly layerTest = Layer.succeed(AnalyticsService, {
+    record: () => Effect.void,
+    flush: Effect.void,
+  });
 }

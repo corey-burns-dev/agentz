@@ -11,15 +11,12 @@ import { OpenLive } from "./open";
 import { ServerLive } from "./wsServer";
 
 const RuntimeLayer = Layer.empty.pipe(
-	Layer.provideMerge(CliConfig.layer),
-	Layer.provideMerge(ServerLive),
-	Layer.provideMerge(OpenLive),
-	Layer.provideMerge(NetService.layer),
-	Layer.provideMerge(NodeServices.layer),
-	Layer.provideMerge(FetchHttpClient.layer),
+  Layer.provideMerge(CliConfig.layer),
+  Layer.provideMerge(ServerLive),
+  Layer.provideMerge(OpenLive),
+  Layer.provideMerge(NetService.layer),
+  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(FetchHttpClient.layer),
 );
 
-Command.run(agentsCli, { version }).pipe(
-	Effect.provide(RuntimeLayer),
-	NodeRuntime.runMain,
-);
+Command.run(agentsCli, { version }).pipe(Effect.provide(RuntimeLayer), NodeRuntime.runMain);

@@ -1,13 +1,5 @@
-import type {
-	ProviderKind,
-	ProviderServiceTier,
-	ProviderStartOptions,
-} from "@agents/contracts";
-import {
-	getDefaultModel,
-	getModelOptions,
-	normalizeModelSlug,
-} from "@agents/shared/model";
+import type { ProviderKind, ProviderServiceTier, ProviderStartOptions } from "@agents/contracts";
+import { getDefaultModel, getModelOptions, normalizeModelSlug } from "@agents/shared/model";
 import { Option, Schema } from "effect";
 import { useCallback, useSyncExternalStore } from "react";
 
@@ -15,200 +7,185 @@ const APP_SETTINGS_STORAGE_KEY = "agents:app-settings:v1";
 const MAX_CUSTOM_MODEL_COUNT = 32;
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
 export const APP_SERVICE_TIER_OPTIONS = [
-	{
-		value: "auto",
-		label: "Automatic",
-		description: "Use Codex defaults without forcing a service tier.",
-	},
-	{
-		value: "fast",
-		label: "Fast",
-		description: "Request the fast service tier when the model supports it.",
-	},
-	{
-		value: "flex",
-		label: "Flex",
-		description: "Request the flex service tier when the model supports it.",
-	},
+  {
+    value: "auto",
+    label: "Automatic",
+    description: "Use Codex defaults without forcing a service tier.",
+  },
+  {
+    value: "fast",
+    label: "Fast",
+    description: "Request the fast service tier when the model supports it.",
+  },
+  {
+    value: "flex",
+    label: "Flex",
+    description: "Request the flex service tier when the model supports it.",
+  },
 ] as const;
 export type AppServiceTier = (typeof APP_SERVICE_TIER_OPTIONS)[number]["value"];
 const AppServiceTierSchema = Schema.Literals(["auto", "fast", "flex"]);
 const MODELS_WITH_FAST_SUPPORT = new Set(["gpt-5.4"]);
-const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<
-	ProviderKind,
-	ReadonlySet<string>
-> = {
-	codex: new Set(getModelOptions("codex").map((option) => option.slug)),
-	gemini: new Set(getModelOptions("gemini").map((option) => option.slug)),
-	"claude-code": new Set(
-		getModelOptions("claude-code").map((option) => option.slug),
-	),
+const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<ProviderKind, ReadonlySet<string>> = {
+  codex: new Set(getModelOptions("codex").map((option) => option.slug)),
+  gemini: new Set(getModelOptions("gemini").map((option) => option.slug)),
+  "claude-code": new Set(getModelOptions("claude-code").map((option) => option.slug)),
 };
 
 type ProviderSettingsConfig = {
-	readonly customModelsKey: keyof Pick<
-		AppSettings,
-		"customCodexModels" | "customGeminiModels" | "customClaudeCodeModels"
-	>;
-	readonly binaryPathKey: keyof Pick<
-		AppSettings,
-		"codexBinaryPath" | "geminiBinaryPath" | "claudeCodeBinaryPath"
-	>;
-	readonly homePathKey: keyof Pick<
-		AppSettings,
-		"codexHomePath" | "geminiHomePath" | "claudeCodeHomePath"
-	>;
-	readonly startOptionsKey: "codex" | "gemini" | "claudeCode";
+  readonly customModelsKey: keyof Pick<
+    AppSettings,
+    "customCodexModels" | "customGeminiModels" | "customClaudeCodeModels"
+  >;
+  readonly binaryPathKey: keyof Pick<
+    AppSettings,
+    "codexBinaryPath" | "geminiBinaryPath" | "claudeCodeBinaryPath"
+  >;
+  readonly homePathKey: keyof Pick<
+    AppSettings,
+    "codexHomePath" | "geminiHomePath" | "claudeCodeHomePath"
+  >;
+  readonly startOptionsKey: "codex" | "gemini" | "claudeCode";
 };
 
 const PROVIDER_SETTINGS_CONFIG = {
-	codex: {
-		customModelsKey: "customCodexModels",
-		binaryPathKey: "codexBinaryPath",
-		homePathKey: "codexHomePath",
-		startOptionsKey: "codex",
-	},
-	gemini: {
-		customModelsKey: "customGeminiModels",
-		binaryPathKey: "geminiBinaryPath",
-		homePathKey: "geminiHomePath",
-		startOptionsKey: "gemini",
-	},
-	"claude-code": {
-		customModelsKey: "customClaudeCodeModels",
-		binaryPathKey: "claudeCodeBinaryPath",
-		homePathKey: "claudeCodeHomePath",
-		startOptionsKey: "claudeCode",
-	},
+  codex: {
+    customModelsKey: "customCodexModels",
+    binaryPathKey: "codexBinaryPath",
+    homePathKey: "codexHomePath",
+    startOptionsKey: "codex",
+  },
+  gemini: {
+    customModelsKey: "customGeminiModels",
+    binaryPathKey: "geminiBinaryPath",
+    homePathKey: "geminiHomePath",
+    startOptionsKey: "gemini",
+  },
+  "claude-code": {
+    customModelsKey: "customClaudeCodeModels",
+    binaryPathKey: "claudeCodeBinaryPath",
+    homePathKey: "claudeCodeHomePath",
+    startOptionsKey: "claudeCode",
+  },
 } as const satisfies Record<ProviderKind, ProviderSettingsConfig>;
 
 const AppSettingsSchema = Schema.Struct({
-	codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-		Schema.withConstructorDefault(() => Option.some("")),
-	),
-	codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-		Schema.withConstructorDefault(() => Option.some("")),
-	),
-	geminiBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-		Schema.withConstructorDefault(() => Option.some("")),
-	),
-	geminiHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-		Schema.withConstructorDefault(() => Option.some("")),
-	),
-	claudeCodeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-		Schema.withConstructorDefault(() => Option.some("")),
-	),
-	claudeCodeHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
-		Schema.withConstructorDefault(() => Option.some("")),
-	),
-	confirmThreadDelete: Schema.Boolean.pipe(
-		Schema.withConstructorDefault(() => Option.some(true)),
-	),
-	enableAssistantStreaming: Schema.Boolean.pipe(
-		Schema.withConstructorDefault(() => Option.some(false)),
-	),
-	enableDesktopNotifications: Schema.Boolean.pipe(
-		Schema.withConstructorDefault(() => Option.some(false)),
-	),
-	playSoundOnAssistantReply: Schema.Boolean.pipe(
-		Schema.withConstructorDefault(() => Option.some(false)),
-	),
-	playSoundOnError: Schema.Boolean.pipe(
-		Schema.withConstructorDefault(() => Option.some(false)),
-	),
-	muteWhileWindowFocused: Schema.Boolean.pipe(
-		Schema.withConstructorDefault(() => Option.some(false)),
-	),
-	codexServiceTier: AppServiceTierSchema.pipe(
-		Schema.withConstructorDefault(() => Option.some("auto")),
-	),
-	customCodexModels: Schema.Array(Schema.String).pipe(
-		Schema.withConstructorDefault(() => Option.some([])),
-	),
-	customGeminiModels: Schema.Array(Schema.String).pipe(
-		Schema.withConstructorDefault(() => Option.some([])),
-	),
-	customClaudeCodeModels: Schema.Array(Schema.String).pipe(
-		Schema.withConstructorDefault(() => Option.some([])),
-	),
+  codexBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    Schema.withConstructorDefault(() => Option.some("")),
+  ),
+  codexHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    Schema.withConstructorDefault(() => Option.some("")),
+  ),
+  geminiBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    Schema.withConstructorDefault(() => Option.some("")),
+  ),
+  geminiHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    Schema.withConstructorDefault(() => Option.some("")),
+  ),
+  claudeCodeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    Schema.withConstructorDefault(() => Option.some("")),
+  ),
+  claudeCodeHomePath: Schema.String.check(Schema.isMaxLength(4096)).pipe(
+    Schema.withConstructorDefault(() => Option.some("")),
+  ),
+  confirmThreadDelete: Schema.Boolean.pipe(Schema.withConstructorDefault(() => Option.some(true))),
+  enableAssistantStreaming: Schema.Boolean.pipe(
+    Schema.withConstructorDefault(() => Option.some(false)),
+  ),
+  enableDesktopNotifications: Schema.Boolean.pipe(
+    Schema.withConstructorDefault(() => Option.some(false)),
+  ),
+  playSoundOnAssistantReply: Schema.Boolean.pipe(
+    Schema.withConstructorDefault(() => Option.some(false)),
+  ),
+  playSoundOnError: Schema.Boolean.pipe(Schema.withConstructorDefault(() => Option.some(false))),
+  muteWhileWindowFocused: Schema.Boolean.pipe(
+    Schema.withConstructorDefault(() => Option.some(false)),
+  ),
+  codexServiceTier: AppServiceTierSchema.pipe(
+    Schema.withConstructorDefault(() => Option.some("auto")),
+  ),
+  customCodexModels: Schema.Array(Schema.String).pipe(
+    Schema.withConstructorDefault(() => Option.some([])),
+  ),
+  customGeminiModels: Schema.Array(Schema.String).pipe(
+    Schema.withConstructorDefault(() => Option.some([])),
+  ),
+  customClaudeCodeModels: Schema.Array(Schema.String).pipe(
+    Schema.withConstructorDefault(() => Option.some([])),
+  ),
 });
 export type AppSettings = typeof AppSettingsSchema.Type;
 export interface AppModelOption {
-	slug: string;
-	name: string;
-	isCustom: boolean;
+  slug: string;
+  name: string;
+  isCustom: boolean;
 }
 
 function normalizeOptionalPath(value: string): string | undefined {
-	const normalized = value.trim();
-	return normalized.length > 0 ? normalized : undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 export function getCustomModelsForProvider(
-	settings: Pick<
-		AppSettings,
-		"customCodexModels" | "customGeminiModels" | "customClaudeCodeModels"
-	>,
-	provider: ProviderKind,
+  settings: Pick<
+    AppSettings,
+    "customCodexModels" | "customGeminiModels" | "customClaudeCodeModels"
+  >,
+  provider: ProviderKind,
 ): readonly string[] {
-	return settings[PROVIDER_SETTINGS_CONFIG[provider].customModelsKey];
+  return settings[PROVIDER_SETTINGS_CONFIG[provider].customModelsKey];
 }
 
 export function patchCustomModelsForProvider(
-	provider: ProviderKind,
-	models: string[],
+  provider: ProviderKind,
+  models: string[],
 ): Partial<
-	Pick<
-		AppSettings,
-		"customCodexModels" | "customGeminiModels" | "customClaudeCodeModels"
-	>
+  Pick<AppSettings, "customCodexModels" | "customGeminiModels" | "customClaudeCodeModels">
 > {
-	return { [PROVIDER_SETTINGS_CONFIG[provider].customModelsKey]: models };
+  return { [PROVIDER_SETTINGS_CONFIG[provider].customModelsKey]: models };
 }
 
 export function getProviderStartOptionsForProvider(
-	settings: Pick<
-		AppSettings,
-		| "codexBinaryPath"
-		| "codexHomePath"
-		| "geminiBinaryPath"
-		| "geminiHomePath"
-		| "claudeCodeBinaryPath"
-		| "claudeCodeHomePath"
-	>,
-	provider: ProviderKind,
+  settings: Pick<
+    AppSettings,
+    | "codexBinaryPath"
+    | "codexHomePath"
+    | "geminiBinaryPath"
+    | "geminiHomePath"
+    | "claudeCodeBinaryPath"
+    | "claudeCodeHomePath"
+  >,
+  provider: ProviderKind,
 ): ProviderStartOptions | undefined {
-	const { binaryPathKey, homePathKey, startOptionsKey } =
-		PROVIDER_SETTINGS_CONFIG[provider];
-	const binaryPath = normalizeOptionalPath(settings[binaryPathKey]);
-	const homePath = normalizeOptionalPath(settings[homePathKey]);
-	if (!binaryPath && !homePath) {
-		return undefined;
-	}
-	return {
-		[startOptionsKey]: {
-			...(binaryPath ? { binaryPath } : {}),
-			...(homePath ? { homePath } : {}),
-		},
-	} as ProviderStartOptions;
+  const { binaryPathKey, homePathKey, startOptionsKey } = PROVIDER_SETTINGS_CONFIG[provider];
+  const binaryPath = normalizeOptionalPath(settings[binaryPathKey]);
+  const homePath = normalizeOptionalPath(settings[homePathKey]);
+  if (!binaryPath && !homePath) {
+    return undefined;
+  }
+  return {
+    [startOptionsKey]: {
+      ...(binaryPath ? { binaryPath } : {}),
+      ...(homePath ? { homePath } : {}),
+    },
+  } as ProviderStartOptions;
 }
 
-export function resolveAppServiceTier(
-	serviceTier: AppServiceTier,
-): ProviderServiceTier | null {
-	return serviceTier === "auto" ? null : serviceTier;
+export function resolveAppServiceTier(serviceTier: AppServiceTier): ProviderServiceTier | null {
+  return serviceTier === "auto" ? null : serviceTier;
 }
 
 export function shouldShowFastTierIcon(
-	model: string | null | undefined,
-	serviceTier: AppServiceTier,
+  model: string | null | undefined,
+  serviceTier: AppServiceTier,
 ): boolean {
-	const normalizedModel = normalizeModelSlug(model);
-	return (
-		resolveAppServiceTier(serviceTier) === "fast" &&
-		normalizedModel !== null &&
-		MODELS_WITH_FAST_SUPPORT.has(normalizedModel)
-	);
+  const normalizedModel = normalizeModelSlug(model);
+  return (
+    resolveAppServiceTier(serviceTier) === "fast" &&
+    normalizedModel !== null &&
+    MODELS_WITH_FAST_SUPPORT.has(normalizedModel)
+  );
 }
 
 const DEFAULT_APP_SETTINGS = AppSettingsSchema.makeUnsafe({});
@@ -218,242 +195,226 @@ let cachedRawSettings: string | null | undefined;
 let cachedSnapshot: AppSettings = DEFAULT_APP_SETTINGS;
 
 export function normalizeCustomModelSlugs(
-	models: Iterable<string | null | undefined>,
-	provider: ProviderKind = "codex",
+  models: Iterable<string | null | undefined>,
+  provider: ProviderKind = "codex",
 ): string[] {
-	const normalizedModels: string[] = [];
-	const seen = new Set<string>();
-	const builtInModelSlugs = BUILT_IN_MODEL_SLUGS_BY_PROVIDER[provider];
+  const normalizedModels: string[] = [];
+  const seen = new Set<string>();
+  const builtInModelSlugs = BUILT_IN_MODEL_SLUGS_BY_PROVIDER[provider];
 
-	for (const candidate of models) {
-		const normalized = normalizeModelSlug(candidate, provider);
-		if (
-			!normalized ||
-			normalized.length > MAX_CUSTOM_MODEL_LENGTH ||
-			builtInModelSlugs.has(normalized) ||
-			seen.has(normalized)
-		) {
-			continue;
-		}
+  for (const candidate of models) {
+    const normalized = normalizeModelSlug(candidate, provider);
+    if (
+      !normalized ||
+      normalized.length > MAX_CUSTOM_MODEL_LENGTH ||
+      builtInModelSlugs.has(normalized) ||
+      seen.has(normalized)
+    ) {
+      continue;
+    }
 
-		seen.add(normalized);
-		normalizedModels.push(normalized);
-		if (normalizedModels.length >= MAX_CUSTOM_MODEL_COUNT) {
-			break;
-		}
-	}
+    seen.add(normalized);
+    normalizedModels.push(normalized);
+    if (normalizedModels.length >= MAX_CUSTOM_MODEL_COUNT) {
+      break;
+    }
+  }
 
-	return normalizedModels;
+  return normalizedModels;
 }
 
 function normalizeAppSettings(settings: AppSettings): AppSettings {
-	return {
-		...settings,
-		customCodexModels: normalizeCustomModelSlugs(
-			settings.customCodexModels,
-			"codex",
-		),
-		customGeminiModels: normalizeCustomModelSlugs(
-			settings.customGeminiModels ?? [],
-			"gemini",
-		),
-		customClaudeCodeModels: normalizeCustomModelSlugs(
-			settings.customClaudeCodeModels ?? [],
-			"claude-code",
-		),
-	};
+  return {
+    ...settings,
+    customCodexModels: normalizeCustomModelSlugs(settings.customCodexModels, "codex"),
+    customGeminiModels: normalizeCustomModelSlugs(settings.customGeminiModels ?? [], "gemini"),
+    customClaudeCodeModels: normalizeCustomModelSlugs(
+      settings.customClaudeCodeModels ?? [],
+      "claude-code",
+    ),
+  };
 }
 
 export function getAppModelOptions(
-	provider: ProviderKind,
-	customModels: readonly string[],
-	selectedModel?: string | null,
+  provider: ProviderKind,
+  customModels: readonly string[],
+  selectedModel?: string | null,
 ): AppModelOption[] {
-	const options: AppModelOption[] = getModelOptions(provider).map(
-		({ slug, name }) => ({
-			slug,
-			name,
-			isCustom: false,
-		}),
-	);
-	const seen = new Set(options.map((option) => option.slug));
+  const options: AppModelOption[] = getModelOptions(provider).map(({ slug, name }) => ({
+    slug,
+    name,
+    isCustom: false,
+  }));
+  const seen = new Set(options.map((option) => option.slug));
 
-	for (const slug of normalizeCustomModelSlugs(customModels, provider)) {
-		if (seen.has(slug)) {
-			continue;
-		}
+  for (const slug of normalizeCustomModelSlugs(customModels, provider)) {
+    if (seen.has(slug)) {
+      continue;
+    }
 
-		seen.add(slug);
-		options.push({
-			slug,
-			name: slug,
-			isCustom: true,
-		});
-	}
+    seen.add(slug);
+    options.push({
+      slug,
+      name: slug,
+      isCustom: true,
+    });
+  }
 
-	const normalizedSelectedModel = normalizeModelSlug(selectedModel, provider);
-	if (normalizedSelectedModel && !seen.has(normalizedSelectedModel)) {
-		options.push({
-			slug: normalizedSelectedModel,
-			name: normalizedSelectedModel,
-			isCustom: true,
-		});
-	}
+  const normalizedSelectedModel = normalizeModelSlug(selectedModel, provider);
+  if (normalizedSelectedModel && !seen.has(normalizedSelectedModel)) {
+    options.push({
+      slug: normalizedSelectedModel,
+      name: normalizedSelectedModel,
+      isCustom: true,
+    });
+  }
 
-	return options;
+  return options;
 }
 
 export function resolveAppModelSelection(
-	provider: ProviderKind,
-	customModels: readonly string[],
-	selectedModel: string | null | undefined,
+  provider: ProviderKind,
+  customModels: readonly string[],
+  selectedModel: string | null | undefined,
 ): string {
-	const options = getAppModelOptions(provider, customModels, selectedModel);
-	const trimmedSelectedModel = selectedModel?.trim();
-	if (trimmedSelectedModel) {
-		const direct = options.find(
-			(option) => option.slug === trimmedSelectedModel,
-		);
-		if (direct) {
-			return direct.slug;
-		}
+  const options = getAppModelOptions(provider, customModels, selectedModel);
+  const trimmedSelectedModel = selectedModel?.trim();
+  if (trimmedSelectedModel) {
+    const direct = options.find((option) => option.slug === trimmedSelectedModel);
+    if (direct) {
+      return direct.slug;
+    }
 
-		const byName = options.find(
-			(option) =>
-				option.name.toLowerCase() === trimmedSelectedModel.toLowerCase(),
-		);
-		if (byName) {
-			return byName.slug;
-		}
-	}
+    const byName = options.find(
+      (option) => option.name.toLowerCase() === trimmedSelectedModel.toLowerCase(),
+    );
+    if (byName) {
+      return byName.slug;
+    }
+  }
 
-	const normalizedSelectedModel = normalizeModelSlug(selectedModel, provider);
-	if (!normalizedSelectedModel) {
-		return getDefaultModel(provider);
-	}
+  const normalizedSelectedModel = normalizeModelSlug(selectedModel, provider);
+  if (!normalizedSelectedModel) {
+    return getDefaultModel(provider);
+  }
 
-	return (
-		options.find((option) => option.slug === normalizedSelectedModel)?.slug ??
-		getDefaultModel(provider)
-	);
+  return (
+    options.find((option) => option.slug === normalizedSelectedModel)?.slug ??
+    getDefaultModel(provider)
+  );
 }
 
 export function getSlashModelOptions(
-	provider: ProviderKind,
-	customModels: readonly string[],
-	query: string,
-	selectedModel?: string | null,
+  provider: ProviderKind,
+  customModels: readonly string[],
+  query: string,
+  selectedModel?: string | null,
 ): AppModelOption[] {
-	const normalizedQuery = query.trim().toLowerCase();
-	const options = getAppModelOptions(provider, customModels, selectedModel);
-	if (!normalizedQuery) {
-		return options;
-	}
+  const normalizedQuery = query.trim().toLowerCase();
+  const options = getAppModelOptions(provider, customModels, selectedModel);
+  if (!normalizedQuery) {
+    return options;
+  }
 
-	return options.filter((option) => {
-		const searchSlug = option.slug.toLowerCase();
-		const searchName = option.name.toLowerCase();
-		return (
-			searchSlug.includes(normalizedQuery) ||
-			searchName.includes(normalizedQuery)
-		);
-	});
+  return options.filter((option) => {
+    const searchSlug = option.slug.toLowerCase();
+    const searchName = option.name.toLowerCase();
+    return searchSlug.includes(normalizedQuery) || searchName.includes(normalizedQuery);
+  });
 }
 
 function emitChange(): void {
-	for (const listener of listeners) {
-		listener();
-	}
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 function parsePersistedSettings(value: string | null): AppSettings {
-	if (!value) {
-		return DEFAULT_APP_SETTINGS;
-	}
+  if (!value) {
+    return DEFAULT_APP_SETTINGS;
+  }
 
-	try {
-		return normalizeAppSettings(
-			Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema))(value),
-		);
-	} catch {
-		return DEFAULT_APP_SETTINGS;
-	}
+  try {
+    return normalizeAppSettings(Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema))(value));
+  } catch {
+    return DEFAULT_APP_SETTINGS;
+  }
 }
 
 export function getAppSettingsSnapshot(): AppSettings {
-	if (typeof window === "undefined") {
-		return DEFAULT_APP_SETTINGS;
-	}
+  if (typeof window === "undefined") {
+    return DEFAULT_APP_SETTINGS;
+  }
 
-	const raw = window.localStorage.getItem(APP_SETTINGS_STORAGE_KEY);
-	if (raw === cachedRawSettings) {
-		return cachedSnapshot;
-	}
+  const raw = window.localStorage.getItem(APP_SETTINGS_STORAGE_KEY);
+  if (raw === cachedRawSettings) {
+    return cachedSnapshot;
+  }
 
-	cachedRawSettings = raw;
-	cachedSnapshot = parsePersistedSettings(raw);
-	return cachedSnapshot;
+  cachedRawSettings = raw;
+  cachedSnapshot = parsePersistedSettings(raw);
+  return cachedSnapshot;
 }
 
 function persistSettings(next: AppSettings): void {
-	if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
 
-	const raw = JSON.stringify(next);
-	try {
-		if (raw !== cachedRawSettings) {
-			window.localStorage.setItem(APP_SETTINGS_STORAGE_KEY, raw);
-		}
-	} catch {
-		// Best-effort persistence only.
-	}
+  const raw = JSON.stringify(next);
+  try {
+    if (raw !== cachedRawSettings) {
+      window.localStorage.setItem(APP_SETTINGS_STORAGE_KEY, raw);
+    }
+  } catch {
+    // Best-effort persistence only.
+  }
 
-	cachedRawSettings = raw;
-	cachedSnapshot = next;
+  cachedRawSettings = raw;
+  cachedSnapshot = next;
 }
 
 function subscribe(listener: () => void): () => void {
-	listeners.push(listener);
+  listeners.push(listener);
 
-	const onStorage = (event: StorageEvent) => {
-		if (event.key === APP_SETTINGS_STORAGE_KEY) {
-			emitChange();
-		}
-	};
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === APP_SETTINGS_STORAGE_KEY) {
+      emitChange();
+    }
+  };
 
-	window.addEventListener("storage", onStorage);
-	return () => {
-		listeners = listeners.filter((entry) => entry !== listener);
-		window.removeEventListener("storage", onStorage);
-	};
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners = listeners.filter((entry) => entry !== listener);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
 export function useAppSettings() {
-	const settings = useSyncExternalStore(
-		subscribe,
-		getAppSettingsSnapshot,
-		() => DEFAULT_APP_SETTINGS,
-	);
+  const settings = useSyncExternalStore(
+    subscribe,
+    getAppSettingsSnapshot,
+    () => DEFAULT_APP_SETTINGS,
+  );
 
-	const updateSettings = useCallback((patch: Partial<AppSettings>) => {
-		const next = normalizeAppSettings(
-			Schema.decodeSync(AppSettingsSchema)({
-				...getAppSettingsSnapshot(),
-				...patch,
-			}),
-		);
-		persistSettings(next);
-		emitChange();
-	}, []);
+  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
+    const next = normalizeAppSettings(
+      Schema.decodeSync(AppSettingsSchema)({
+        ...getAppSettingsSnapshot(),
+        ...patch,
+      }),
+    );
+    persistSettings(next);
+    emitChange();
+  }, []);
 
-	const resetSettings = useCallback(() => {
-		persistSettings(DEFAULT_APP_SETTINGS);
-		emitChange();
-	}, []);
+  const resetSettings = useCallback(() => {
+    persistSettings(DEFAULT_APP_SETTINGS);
+    emitChange();
+  }, []);
 
-	return {
-		settings,
-		updateSettings,
-		resetSettings,
-		defaults: DEFAULT_APP_SETTINGS,
-	} as const;
+  return {
+    settings,
+    updateSettings,
+    resetSettings,
+    defaults: DEFAULT_APP_SETTINGS,
+  } as const;
 }

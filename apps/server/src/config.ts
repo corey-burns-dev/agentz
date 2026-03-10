@@ -16,70 +16,69 @@ export type RuntimeMode = "web" | "desktop";
  * ServerConfigShape - Process/runtime configuration required by the server.
  */
 export interface ServerConfigShape {
-	readonly mode: RuntimeMode;
-	readonly port: number;
-	readonly host: string | undefined;
-	readonly cwd: string;
-	/** Resolved path of the server package root (e.g. apps/server). Used to skip auto-bootstrap when cwd is the server itself. */
-	readonly serverPackageRoot: string | undefined;
-	readonly keybindingsConfigPath: string;
-	readonly stateDir: string;
-	readonly staticDir: string | undefined;
-	readonly devUrl: URL | undefined;
-	readonly noBrowser: boolean;
-	readonly authToken: string | undefined;
-	readonly autoBootstrapProjectFromCwd: boolean;
-	readonly logWebSocketEvents: boolean;
+  readonly mode: RuntimeMode;
+  readonly port: number;
+  readonly host: string | undefined;
+  readonly cwd: string;
+  /** Resolved path of the server package root (e.g. apps/server). Used to skip auto-bootstrap when cwd is the server itself. */
+  readonly serverPackageRoot: string | undefined;
+  readonly keybindingsConfigPath: string;
+  readonly stateDir: string;
+  readonly staticDir: string | undefined;
+  readonly devUrl: URL | undefined;
+  readonly noBrowser: boolean;
+  readonly authToken: string | undefined;
+  readonly autoBootstrapProjectFromCwd: boolean;
+  readonly logWebSocketEvents: boolean;
 }
 
 /**
  * ServerConfig - Service tag for server runtime configuration.
  */
-export class ServerConfig extends ServiceMap.Service<
-	ServerConfig,
-	ServerConfigShape
->()("agents/config/ServerConfig") {
-	static readonly layerTest = (cwd: string, statedir: string) =>
-		Layer.effect(
-			ServerConfig,
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				return {
-					cwd,
-					serverPackageRoot: undefined,
-					stateDir: statedir,
-					mode: "web",
-					autoBootstrapProjectFromCwd: false,
-					logWebSocketEvents: false,
-					port: 0,
-					host: undefined,
-					authToken: undefined,
-					keybindingsConfigPath: path.join(statedir, "keybindings.json"),
-					staticDir: undefined,
-					devUrl: undefined,
-					noBrowser: false,
-				};
-			}),
-		);
+export class ServerConfig extends ServiceMap.Service<ServerConfig, ServerConfigShape>()(
+  "agents/config/ServerConfig",
+) {
+  static readonly layerTest = (cwd: string, statedir: string) =>
+    Layer.effect(
+      ServerConfig,
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        return {
+          cwd,
+          serverPackageRoot: undefined,
+          stateDir: statedir,
+          mode: "web",
+          autoBootstrapProjectFromCwd: false,
+          logWebSocketEvents: false,
+          port: 0,
+          host: undefined,
+          authToken: undefined,
+          keybindingsConfigPath: path.join(statedir, "keybindings.json"),
+          staticDir: undefined,
+          devUrl: undefined,
+          noBrowser: false,
+        };
+      }),
+    );
 }
 
 export const resolveStaticDir = Effect.fn(function* () {
-	const { join, resolve } = yield* Path.Path;
-	const { exists } = yield* FileSystem.FileSystem;
-	const bundledClient = resolve(join(import.meta.dirname, "client"));
-	const bundledStat = yield* exists(join(bundledClient, "index.html")).pipe(
-		Effect.orElseSucceed(() => false),
-	);
-	if (bundledStat) {
-		return bundledClient;
-	}
+  const { join, resolve } = yield* Path.Path;
+  const { exists } = yield* FileSystem.FileSystem;
+  const bundledClient = resolve(join(import.meta.dirname, "client"));
+  const bundledStat = yield* exists(join(bundledClient, "index.html")).pipe(
+    Effect.orElseSucceed(() => false),
+  );
+  if (bundledStat) {
+    return bundledClient;
+  }
 
-	const monorepoClient = resolve(join(import.meta.dirname, "../../web/dist"));
-	const monorepoStat = yield* exists(join(monorepoClient, "index.html")).pipe(
-		Effect.orElseSucceed(() => false),
-	);
-	if (monorepoStat) {
-		return monorepoClient;
-	}
-	return undefined;
+  const monorepoClient = resolve(join(import.meta.dirname, "../../web/dist"));
+  const monorepoStat = yield* exists(join(monorepoClient, "index.html")).pipe(
+    Effect.orElseSucceed(() => false),
+  );
+  if (monorepoStat) {
+    return monorepoClient;
+  }
+  return undefined;
 });

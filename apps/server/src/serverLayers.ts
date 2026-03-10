@@ -39,110 +39,101 @@ import { TerminalManagerLive } from "./terminal/Layers/Manager";
 import { NodePtyAdapterLive } from "./terminal/Layers/NodePTY";
 
 export function makeServerProviderLayer(): Layer.Layer<
-	ProviderService,
-	ProviderUnsupportedError,
-	SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem | AnalyticsService
+  ProviderService,
+  ProviderUnsupportedError,
+  SqlClient.SqlClient | ServerConfig | FileSystem.FileSystem | AnalyticsService
 > {
-	return Effect.gen(function* () {
-		const { stateDir } = yield* ServerConfig;
-		const providerLogsDir = path.join(stateDir, "logs", "provider");
-		const providerEventLogPath = path.join(providerLogsDir, "events.log");
-		const nativeEventLogger = yield* makeEventNdjsonLogger(
-			providerEventLogPath,
-			{
-				stream: "native",
-			},
-		);
-		const canonicalEventLogger = yield* makeEventNdjsonLogger(
-			providerEventLogPath,
-			{
-				stream: "canonical",
-			},
-		);
-		const providerSessionDirectoryLayer = ProviderSessionDirectoryLive.pipe(
-			Layer.provide(ProviderSessionRuntimeRepositoryLive),
-		);
-		const codexAdapterLayer = makeCodexAdapterLive(
-			nativeEventLogger ? { nativeEventLogger } : undefined,
-		);
-		const geminiAdapterLayer = makeGeminiAdapterLive(
-			nativeEventLogger ? { nativeEventLogger } : undefined,
-		);
-		const claudeCodeAdapterLayer = makeClaudeCodeAdapterLive(
-			nativeEventLogger ? { nativeEventLogger } : undefined,
-		);
-		const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
-			Layer.provide(codexAdapterLayer),
-			Layer.provide(geminiAdapterLayer),
-			Layer.provide(claudeCodeAdapterLayer),
-			Layer.provideMerge(providerSessionDirectoryLayer),
-		);
-		return makeProviderServiceLive(
-			canonicalEventLogger ? { canonicalEventLogger } : undefined,
-		).pipe(
-			Layer.provide(adapterRegistryLayer),
-			Layer.provide(providerSessionDirectoryLayer),
-		);
-	}).pipe(Layer.unwrap);
+  return Effect.gen(function* () {
+    const { stateDir } = yield* ServerConfig;
+    const providerLogsDir = path.join(stateDir, "logs", "provider");
+    const providerEventLogPath = path.join(providerLogsDir, "events.log");
+    const nativeEventLogger = yield* makeEventNdjsonLogger(providerEventLogPath, {
+      stream: "native",
+    });
+    const canonicalEventLogger = yield* makeEventNdjsonLogger(providerEventLogPath, {
+      stream: "canonical",
+    });
+    const providerSessionDirectoryLayer = ProviderSessionDirectoryLive.pipe(
+      Layer.provide(ProviderSessionRuntimeRepositoryLive),
+    );
+    const codexAdapterLayer = makeCodexAdapterLive(
+      nativeEventLogger ? { nativeEventLogger } : undefined,
+    );
+    const geminiAdapterLayer = makeGeminiAdapterLive(
+      nativeEventLogger ? { nativeEventLogger } : undefined,
+    );
+    const claudeCodeAdapterLayer = makeClaudeCodeAdapterLive(
+      nativeEventLogger ? { nativeEventLogger } : undefined,
+    );
+    const adapterRegistryLayer = ProviderAdapterRegistryLive.pipe(
+      Layer.provide(codexAdapterLayer),
+      Layer.provide(geminiAdapterLayer),
+      Layer.provide(claudeCodeAdapterLayer),
+      Layer.provideMerge(providerSessionDirectoryLayer),
+    );
+    return makeProviderServiceLive(
+      canonicalEventLogger ? { canonicalEventLogger } : undefined,
+    ).pipe(Layer.provide(adapterRegistryLayer), Layer.provide(providerSessionDirectoryLayer));
+  }).pipe(Layer.unwrap);
 }
 
 export function makeServerRuntimeServicesLayer() {
-	const gitCoreLayer = GitCoreLive.pipe(Layer.provideMerge(GitServiceLive));
-	const textGenerationLayer = CodexTextGenerationLive;
+  const gitCoreLayer = GitCoreLive.pipe(Layer.provideMerge(GitServiceLive));
+  const textGenerationLayer = CodexTextGenerationLive;
 
-	const orchestrationLayer = OrchestrationEngineLive.pipe(
-		Layer.provide(OrchestrationProjectionPipelineLive),
-		Layer.provide(OrchestrationEventStoreLive),
-		Layer.provide(OrchestrationCommandReceiptRepositoryLive),
-	);
+  const orchestrationLayer = OrchestrationEngineLive.pipe(
+    Layer.provide(OrchestrationProjectionPipelineLive),
+    Layer.provide(OrchestrationEventStoreLive),
+    Layer.provide(OrchestrationCommandReceiptRepositoryLive),
+  );
 
-	const checkpointDiffQueryLayer = CheckpointDiffQueryLive.pipe(
-		Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
-		Layer.provideMerge(CheckpointStoreLive),
-	);
+  const checkpointDiffQueryLayer = CheckpointDiffQueryLive.pipe(
+    Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+    Layer.provideMerge(CheckpointStoreLive),
+  );
 
-	const runtimeServicesLayer = Layer.mergeAll(
-		orchestrationLayer,
-		OrchestrationProjectionSnapshotQueryLive,
-		CheckpointStoreLive,
-		checkpointDiffQueryLayer,
-	);
-	const runtimeIngestionLayer = ProviderRuntimeIngestionLive.pipe(
-		Layer.provideMerge(runtimeServicesLayer),
-	);
-	const providerCommandReactorLayer = ProviderCommandReactorLive.pipe(
-		Layer.provideMerge(runtimeServicesLayer),
-		Layer.provideMerge(gitCoreLayer),
-		Layer.provideMerge(textGenerationLayer),
-	);
-	const checkpointReactorLayer = CheckpointReactorLive.pipe(
-		Layer.provideMerge(runtimeServicesLayer),
-	);
-	const orchestrationReactorLayer = OrchestrationReactorLive.pipe(
-		Layer.provideMerge(runtimeIngestionLayer),
-		Layer.provideMerge(providerCommandReactorLayer),
-		Layer.provideMerge(checkpointReactorLayer),
-	);
+  const runtimeServicesLayer = Layer.mergeAll(
+    orchestrationLayer,
+    OrchestrationProjectionSnapshotQueryLive,
+    CheckpointStoreLive,
+    checkpointDiffQueryLayer,
+  );
+  const runtimeIngestionLayer = ProviderRuntimeIngestionLive.pipe(
+    Layer.provideMerge(runtimeServicesLayer),
+  );
+  const providerCommandReactorLayer = ProviderCommandReactorLive.pipe(
+    Layer.provideMerge(runtimeServicesLayer),
+    Layer.provideMerge(gitCoreLayer),
+    Layer.provideMerge(textGenerationLayer),
+  );
+  const checkpointReactorLayer = CheckpointReactorLive.pipe(
+    Layer.provideMerge(runtimeServicesLayer),
+  );
+  const orchestrationReactorLayer = OrchestrationReactorLive.pipe(
+    Layer.provideMerge(runtimeIngestionLayer),
+    Layer.provideMerge(providerCommandReactorLayer),
+    Layer.provideMerge(checkpointReactorLayer),
+  );
 
-	const terminalLayer = TerminalManagerLive.pipe(
-		Layer.provide(
-			typeof Bun !== "undefined" && process.platform !== "win32"
-				? BunPtyAdapterLive
-				: NodePtyAdapterLive,
-		),
-	);
+  const terminalLayer = TerminalManagerLive.pipe(
+    Layer.provide(
+      typeof Bun !== "undefined" && process.platform !== "win32"
+        ? BunPtyAdapterLive
+        : NodePtyAdapterLive,
+    ),
+  );
 
-	const gitManagerLayer = GitManagerLive.pipe(
-		Layer.provideMerge(gitCoreLayer),
-		Layer.provideMerge(GitHubCliLive),
-		Layer.provideMerge(textGenerationLayer),
-	);
+  const gitManagerLayer = GitManagerLive.pipe(
+    Layer.provideMerge(gitCoreLayer),
+    Layer.provideMerge(GitHubCliLive),
+    Layer.provideMerge(textGenerationLayer),
+  );
 
-	return Layer.mergeAll(
-		orchestrationReactorLayer,
-		gitCoreLayer,
-		gitManagerLayer,
-		terminalLayer,
-		KeybindingsLive,
-	).pipe(Layer.provideMerge(NodeServices.layer));
+  return Layer.mergeAll(
+    orchestrationReactorLayer,
+    gitCoreLayer,
+    gitManagerLayer,
+    terminalLayer,
+    KeybindingsLive,
+  ).pipe(Layer.provideMerge(NodeServices.layer));
 }

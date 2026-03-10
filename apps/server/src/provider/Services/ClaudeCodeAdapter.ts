@@ -15,15 +15,14 @@ import type { ProviderAdapterShape } from "./ProviderAdapter.ts";
 /**
  * ClaudeCodeAdapterShape - Service API for the Claude Code provider adapter.
  */
-export interface ClaudeCodeAdapterShape
-	extends ProviderAdapterShape<ProviderAdapterError> {
-	readonly provider: "claude-code";
+export interface ClaudeCodeAdapterShape extends ProviderAdapterShape<ProviderAdapterError> {
+  readonly provider: "claude-code";
 }
 
 /**
  * ClaudeCodeAdapter - Service tag for Claude Code provider adapter operations.
  */
 export class ClaudeCodeAdapter extends ServiceMap.Service<
-	ClaudeCodeAdapter,
-	ClaudeCodeAdapterShape
+  ClaudeCodeAdapter,
+  ClaudeCodeAdapterShape
 >()("agents/provider/Services/ClaudeCodeAdapter") {}

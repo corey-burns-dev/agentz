@@ -10,36 +10,33 @@ const TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 250;
 
 async function waitForServer() {
-	const deadline = Date.now() + TIMEOUT_MS;
-	while (Date.now() < deadline) {
-		const available = await new Promise((resolve) => {
-			const req = request(
-				{ hostname: "localhost", port, path: "/", method: "GET" },
-				() => resolve(true),
-			);
-			req.on("error", () => resolve(false));
-			req.setTimeout(POLL_INTERVAL_MS, () => {
-				req.destroy();
-				resolve(false);
-			});
-			req.end();
-		});
-		if (available) return;
-		await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-	}
-	throw new Error(
-		`Server on port ${port} did not start within ${TIMEOUT_MS}ms`,
-	);
+  const deadline = Date.now() + TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const available = await new Promise((resolve) => {
+      const req = request({ hostname: "localhost", port, path: "/", method: "GET" }, () =>
+        resolve(true),
+      );
+      req.on("error", () => resolve(false));
+      req.setTimeout(POLL_INTERVAL_MS, () => {
+        req.destroy();
+        resolve(false);
+      });
+      req.end();
+    });
+    if (available) return;
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+  throw new Error(`Server on port ${port} did not start within ${TIMEOUT_MS}ms`);
 }
 
 await waitForServer();
 
 const child = spawn("node", ["scripts/run-tauri.mjs", "dev"], {
-	cwd: desktopDir,
-	env: process.env,
-	stdio: "inherit",
+  cwd: desktopDir,
+  env: process.env,
+  stdio: "inherit",
 });
 
 child.on("exit", (code) => {
-	process.exit(code ?? 0);
+  process.exit(code ?? 0);
 });

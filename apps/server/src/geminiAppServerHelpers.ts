@@ -7,15 +7,12 @@
  *
  * @module geminiAppServerHelpers
  */
-import {
-	type ChildProcessWithoutNullStreams,
-	spawnSync,
-} from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawnSync } from "node:child_process";
 
 import type {
-	ProviderInteractionMode,
-	ProviderUserInputAnswers,
-	RuntimeMode,
+  ProviderInteractionMode,
+  ProviderUserInputAnswers,
+  RuntimeMode,
 } from "@agents/contracts";
 import { normalizeModelSlug } from "@agents/shared/model";
 
@@ -26,77 +23,71 @@ export const GEMINI_VERSION_CHECK_TIMEOUT_MS = 4_000;
 const ANSI_ESCAPE_CHAR = String.fromCharCode(27);
 const ANSI_ESCAPE_REGEX = new RegExp(`${ANSI_ESCAPE_CHAR}\\[[0-9;]*m`, "g");
 const GEMINI_STDERR_LOG_REGEX =
-	/^\d{4}-\d{2}-\d{2}T\S+\s+(TRACE|DEBUG|INFO|WARN|ERROR)\s+\S+:\s+(.*)$/;
+  /^\d{4}-\d{2}-\d{2}T\S+\s+(TRACE|DEBUG|INFO|WARN|ERROR)\s+\S+:\s+(.*)$/;
 const BENIGN_ERROR_LOG_SNIPPETS = [
-	"state db missing rollout path for thread",
-	"state db record_discrepancy: find_thread_path_by_id_str_in_subdir, falling_back",
+  "state db missing rollout path for thread",
+  "state db record_discrepancy: find_thread_path_by_id_str_in_subdir, falling_back",
 ];
 const RECOVERABLE_THREAD_RESUME_ERROR_SNIPPETS = [
-	"not found",
-	"missing thread",
-	"no such thread",
-	"unknown thread",
-	"does not exist",
+  "not found",
+  "missing thread",
+  "no such thread",
+  "unknown thread",
+  "does not exist",
 ];
 
 export const GEMINI_DEFAULT_MODEL = "gemini-2.5-pro";
 export const GEMINI_FAST_MODEL = "gemini-2.5-flash";
 
 type GeminiPlanType =
-	| "free"
-	| "go"
-	| "plus"
-	| "pro"
-	| "team"
-	| "business"
-	| "enterprise"
-	| "edu"
-	| "unknown";
+  | "free"
+  | "go"
+  | "plus"
+  | "pro"
+  | "team"
+  | "business"
+  | "enterprise"
+  | "edu"
+  | "unknown";
 
-const GEMINI_FAST_DISABLED_PLAN_TYPES = new Set<GeminiPlanType>([
-	"free",
-	"go",
-	"plus",
-]);
+const GEMINI_FAST_DISABLED_PLAN_TYPES = new Set<GeminiPlanType>(["free", "go", "plus"]);
 
 // ── Account snapshot ──────────────────────────────────────────────────
 
 export interface GeminiAccountSnapshot {
-	readonly type: "apiKey" | "chatgpt" | "unknown";
-	readonly planType: GeminiPlanType | null;
-	readonly sparkEnabled: boolean;
+  readonly type: "apiKey" | "chatgpt" | "unknown";
+  readonly planType: GeminiPlanType | null;
+  readonly sparkEnabled: boolean;
 }
 
 function asObject(value: unknown): Record<string, unknown> | undefined {
-	if (!value || typeof value !== "object") return undefined;
-	return value as Record<string, unknown>;
+  if (!value || typeof value !== "object") return undefined;
+  return value as Record<string, unknown>;
 }
 
 function asString(value: unknown): string | undefined {
-	return typeof value === "string" ? value : undefined;
+  return typeof value === "string" ? value : undefined;
 }
 
-export function readGeminiAccountSnapshot(
-	response: unknown,
-): GeminiAccountSnapshot {
-	const record = asObject(response);
-	const account = asObject(record?.account) ?? record;
-	const accountType = asString(account?.type);
+export function readGeminiAccountSnapshot(response: unknown): GeminiAccountSnapshot {
+  const record = asObject(response);
+  const account = asObject(record?.account) ?? record;
+  const accountType = asString(account?.type);
 
-	if (accountType === "apiKey") {
-		return { type: "apiKey", planType: null, sparkEnabled: true };
-	}
+  if (accountType === "apiKey") {
+    return { type: "apiKey", planType: null, sparkEnabled: true };
+  }
 
-	if (accountType === "chatgpt") {
-		const planType = (account?.planType as GeminiPlanType | null) ?? "unknown";
-		return {
-			type: "chatgpt",
-			planType,
-			sparkEnabled: !GEMINI_FAST_DISABLED_PLAN_TYPES.has(planType),
-		};
-	}
+  if (accountType === "chatgpt") {
+    const planType = (account?.planType as GeminiPlanType | null) ?? "unknown";
+    return {
+      type: "chatgpt",
+      planType,
+      sparkEnabled: !GEMINI_FAST_DISABLED_PLAN_TYPES.has(planType),
+    };
+  }
 
-	return { type: "unknown", planType: null, sparkEnabled: true };
+  return { type: "unknown", planType: null, sparkEnabled: true };
 }
 
 // ── Developer instructions ─────────────────────────────────────────────
@@ -239,76 +230,76 @@ In Default mode, strongly prefer making reasonable assumptions and executing the
 // ── Runtime mode helpers ───────────────────────────────────────────────
 
 export function mapGeminiRuntimeMode(runtimeMode: RuntimeMode): {
-	readonly approvalPolicy: "on-request" | "never";
-	readonly sandbox: "workspace-write" | "danger-full-access";
+  readonly approvalPolicy: "on-request" | "never";
+  readonly sandbox: "workspace-write" | "danger-full-access";
 } {
-	if (runtimeMode === "approval-required") {
-		return { approvalPolicy: "on-request", sandbox: "workspace-write" };
-	}
-	return { approvalPolicy: "never", sandbox: "danger-full-access" };
+  if (runtimeMode === "approval-required") {
+    return { approvalPolicy: "on-request", sandbox: "workspace-write" };
+  }
+  return { approvalPolicy: "never", sandbox: "danger-full-access" };
 }
 
 // ── Model helpers ──────────────────────────────────────────────────────
 
 export function resolveGeminiModelForAccount(
-	model: string | undefined,
-	account: GeminiAccountSnapshot,
+  model: string | undefined,
+  account: GeminiAccountSnapshot,
 ): string | undefined {
-	if (model !== GEMINI_FAST_MODEL || account.sparkEnabled) return model;
-	return GEMINI_DEFAULT_MODEL;
+  if (model !== GEMINI_FAST_MODEL || account.sparkEnabled) return model;
+  return GEMINI_DEFAULT_MODEL;
 }
 
 export function normalizeGeminiModelSlug(
-	model: string | undefined | null,
-	preferredId?: string,
+  model: string | undefined | null,
+  preferredId?: string,
 ): string | undefined {
-	const normalized = normalizeModelSlug(model);
-	if (!normalized) return undefined;
-	if (preferredId?.endsWith("-gemini") && preferredId !== normalized) {
-		return preferredId;
-	}
-	return normalized;
+  const normalized = normalizeModelSlug(model);
+  if (!normalized) return undefined;
+  if (preferredId?.endsWith("-gemini") && preferredId !== normalized) {
+    return preferredId;
+  }
+  return normalized;
 }
 
 export function buildGeminiInitializeParams() {
-	return {
-		protocolVersion: 1,
-		clientInfo: {
-			name: "agents_desktop",
-			title: "Agents Desktop",
-			version: "0.1.0",
-		},
-		clientCapabilities: {},
-	} as const;
+  return {
+    protocolVersion: 1,
+    clientInfo: {
+      name: "agents_desktop",
+      title: "Agents Desktop",
+      version: "0.1.0",
+    },
+    clientCapabilities: {},
+  } as const;
 }
 
 export function buildGeminiCollaborationMode(input: {
-	readonly interactionMode?: "default" | "plan";
-	readonly model?: string;
-	readonly effort?: string;
+  readonly interactionMode?: "default" | "plan";
+  readonly model?: string;
+  readonly effort?: string;
 }):
-	| {
-			mode: "default" | "plan";
-			settings: {
-				model: string;
-				reasoning_effort: string;
-				developer_instructions: string;
-			};
-	  }
-	| undefined {
-	if (input.interactionMode === undefined) return undefined;
-	const model = normalizeGeminiModelSlug(input.model) ?? GEMINI_DEFAULT_MODEL;
-	return {
-		mode: input.interactionMode,
-		settings: {
-			model,
-			reasoning_effort: input.effort ?? "medium",
-			developer_instructions:
-				input.interactionMode === "plan"
-					? GEMINI_PLAN_MODE_DEVELOPER_INSTRUCTIONS
-					: GEMINI_DEFAULT_MODE_DEVELOPER_INSTRUCTIONS,
-		},
-	};
+  | {
+      mode: "default" | "plan";
+      settings: {
+        model: string;
+        reasoning_effort: string;
+        developer_instructions: string;
+      };
+    }
+  | undefined {
+  if (input.interactionMode === undefined) return undefined;
+  const model = normalizeGeminiModelSlug(input.model) ?? GEMINI_DEFAULT_MODEL;
+  return {
+    mode: input.interactionMode,
+    settings: {
+      model,
+      reasoning_effort: input.effort ?? "medium",
+      developer_instructions:
+        input.interactionMode === "plan"
+          ? GEMINI_PLAN_MODE_DEVELOPER_INSTRUCTIONS
+          : GEMINI_DEFAULT_MODE_DEVELOPER_INSTRUCTIONS,
+    },
+  };
 }
 
 // ── Process helpers ────────────────────────────────────────────────────
@@ -319,115 +310,103 @@ export function buildGeminiCollaborationMode(input: {
  * entire process tree instead.
  */
 export function killChildTree(child: ChildProcessWithoutNullStreams): void {
-	if (process.platform === "win32" && child.pid !== undefined) {
-		try {
-			spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
-				stdio: "ignore",
-			});
-			return;
-		} catch {
-			// fallback to direct kill
-		}
-	}
-	child.kill();
+  if (process.platform === "win32" && child.pid !== undefined) {
+    try {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+        stdio: "ignore",
+      });
+      return;
+    } catch {
+      // fallback to direct kill
+    }
+  }
+  child.kill();
 }
 
 // ── User input helpers ─────────────────────────────────────────────────
 
 interface GeminiUserInputAnswer {
-	answers: string[];
+  answers: string[];
 }
 
 function toGeminiUserInputAnswer(value: unknown): GeminiUserInputAnswer {
-	if (typeof value === "string") return { answers: [value] };
+  if (typeof value === "string") return { answers: [value] };
 
-	if (Array.isArray(value)) {
-		return {
-			answers: value.filter(
-				(entry): entry is string => typeof entry === "string",
-			),
-		};
-	}
+  if (Array.isArray(value)) {
+    return {
+      answers: value.filter((entry): entry is string => typeof entry === "string"),
+    };
+  }
 
-	if (value && typeof value === "object") {
-		const maybeAnswers = (value as { answers?: unknown }).answers;
-		if (Array.isArray(maybeAnswers)) {
-			return {
-				answers: maybeAnswers.filter(
-					(entry): entry is string => typeof entry === "string",
-				),
-			};
-		}
-	}
+  if (value && typeof value === "object") {
+    const maybeAnswers = (value as { answers?: unknown }).answers;
+    if (Array.isArray(maybeAnswers)) {
+      return {
+        answers: maybeAnswers.filter((entry): entry is string => typeof entry === "string"),
+      };
+    }
+  }
 
-	throw new Error("User input answers must be strings or arrays of strings.");
+  throw new Error("User input answers must be strings or arrays of strings.");
 }
 
 export function toGeminiUserInputAnswers(
-	answers: ProviderUserInputAnswers,
+  answers: ProviderUserInputAnswers,
 ): Record<string, GeminiUserInputAnswer> {
-	return Object.fromEntries(
-		Object.entries(answers).map(([questionId, value]) => [
-			questionId,
-			toGeminiUserInputAnswer(value),
-		]),
-	);
+  return Object.fromEntries(
+    Object.entries(answers).map(([questionId, value]) => [
+      questionId,
+      toGeminiUserInputAnswer(value),
+    ]),
+  );
 }
 
 // ── Stderr classification ──────────────────────────────────────────────
 
-export function classifyGeminiStderrLine(
-	rawLine: string,
-): { message: string } | null {
-	const line = rawLine.replaceAll(ANSI_ESCAPE_REGEX, "").trim();
-	if (!line) return null;
+export function classifyGeminiStderrLine(rawLine: string): { message: string } | null {
+  const line = rawLine.replaceAll(ANSI_ESCAPE_REGEX, "").trim();
+  if (!line) return null;
 
-	const match = line.match(GEMINI_STDERR_LOG_REGEX);
-	if (match) {
-		const level = match[1];
-		if (level && level !== "ERROR") return null;
+  const match = line.match(GEMINI_STDERR_LOG_REGEX);
+  if (match) {
+    const level = match[1];
+    if (level && level !== "ERROR") return null;
 
-		const isBenignError = BENIGN_ERROR_LOG_SNIPPETS.some((snippet) =>
-			line.includes(snippet),
-		);
-		if (isBenignError) return null;
-	}
+    const isBenignError = BENIGN_ERROR_LOG_SNIPPETS.some((snippet) => line.includes(snippet));
+    if (isBenignError) return null;
+  }
 
-	return { message: line };
+  return { message: line };
 }
 
 export function isRecoverableThreadResumeError(error: unknown): boolean {
-	const message = (
-		error instanceof Error ? error.message : String(error)
-	).toLowerCase();
-	if (!message.includes("thread/resume")) return false;
-	return RECOVERABLE_THREAD_RESUME_ERROR_SNIPPETS.some((snippet) =>
-		message.includes(snippet),
-	);
+  const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  if (!message.includes("thread/resume")) return false;
+  return RECOVERABLE_THREAD_RESUME_ERROR_SNIPPETS.some((snippet) => message.includes(snippet));
 }
 
 // ── Collaboration mode builder ─────────────────────────────────────────
 
 export function buildCollaborationModeForInteraction(input: {
-	readonly interactionMode?: ProviderInteractionMode;
-	readonly model?: string;
-	readonly effort?: string;
+  readonly interactionMode?: ProviderInteractionMode;
+  readonly model?: string;
+  readonly effort?: string;
 }):
-	| {
-			mode: "default" | "plan";
-			settings: {
-				model: string;
-				reasoning_effort: string;
-				developer_instructions: string;
-			};
-	  }
-	| undefined {
-	if (input.interactionMode === "plan" || input.interactionMode === "default") {
-		return buildGeminiCollaborationMode({
-			interactionMode: input.interactionMode,
-			...(input.model !== undefined ? { model: input.model } : {}),
-			...(input.effort !== undefined ? { effort: input.effort } : {}),
-		});
-	}
-	return undefined;
+  | {
+      mode: "default" | "plan";
+      settings: {
+        model: string;
+        reasoning_effort: string;
+        developer_instructions: string;
+      };
+    }
+  | undefined {
+  if (input.interactionMode === "plan" || input.interactionMode === "default") {
+    return buildGeminiCollaborationMode({
+      interactionMode: input.interactionMode,
+      ...(input.model !== undefined ? { model: input.model } : {}),
+      ...(input.effort !== undefined ? { effort: input.effort } : {}),
+    });
+  }
+  return undefined;
 }

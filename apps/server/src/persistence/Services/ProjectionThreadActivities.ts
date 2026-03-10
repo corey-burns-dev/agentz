@@ -7,12 +7,12 @@
  * @module ProjectionThreadActivityRepository
  */
 import {
-	EventId,
-	IsoDateTime,
-	NonNegativeInt,
-	OrchestrationThreadActivityTone,
-	ThreadId,
-	TurnId,
+  EventId,
+  IsoDateTime,
+  NonNegativeInt,
+  OrchestrationThreadActivityTone,
+  ThreadId,
+  TurnId,
 } from "@agents/contracts";
 import type { Effect } from "effect";
 import { Schema, ServiceMap } from "effect";
@@ -20,70 +20,64 @@ import { Schema, ServiceMap } from "effect";
 import type { ProjectionRepositoryError } from "../Errors.ts";
 
 export const ProjectionThreadActivity = Schema.Struct({
-	activityId: EventId,
-	threadId: ThreadId,
-	turnId: Schema.NullOr(TurnId),
-	tone: OrchestrationThreadActivityTone,
-	kind: Schema.String,
-	summary: Schema.String,
-	payload: Schema.Unknown,
-	sequence: Schema.optional(NonNegativeInt),
-	createdAt: IsoDateTime,
+  activityId: EventId,
+  threadId: ThreadId,
+  turnId: Schema.NullOr(TurnId),
+  tone: OrchestrationThreadActivityTone,
+  kind: Schema.String,
+  summary: Schema.String,
+  payload: Schema.Unknown,
+  sequence: Schema.optional(NonNegativeInt),
+  createdAt: IsoDateTime,
 });
 export type ProjectionThreadActivity = typeof ProjectionThreadActivity.Type;
 
 export const ListProjectionThreadActivitiesInput = Schema.Struct({
-	threadId: ThreadId,
+  threadId: ThreadId,
 });
-export type ListProjectionThreadActivitiesInput =
-	typeof ListProjectionThreadActivitiesInput.Type;
+export type ListProjectionThreadActivitiesInput = typeof ListProjectionThreadActivitiesInput.Type;
 
 export const DeleteProjectionThreadActivitiesInput = Schema.Struct({
-	threadId: ThreadId,
+  threadId: ThreadId,
 });
 export type DeleteProjectionThreadActivitiesInput =
-	typeof DeleteProjectionThreadActivitiesInput.Type;
+  typeof DeleteProjectionThreadActivitiesInput.Type;
 
 /**
  * ProjectionThreadActivityRepositoryShape - Service API for projected thread activity.
  */
 export interface ProjectionThreadActivityRepositoryShape {
-	/**
-	 * Insert or replace a projected thread activity row.
-	 *
-	 * Upserts by `activityId` and JSON-encodes payload.
-	 */
-	readonly upsert: (
-		row: ProjectionThreadActivity,
-	) => Effect.Effect<void, ProjectionRepositoryError>;
+  /**
+   * Insert or replace a projected thread activity row.
+   *
+   * Upserts by `activityId` and JSON-encodes payload.
+   */
+  readonly upsert: (
+    row: ProjectionThreadActivity,
+  ) => Effect.Effect<void, ProjectionRepositoryError>;
 
-	/**
-	 * List projected thread activity rows for a thread.
-	 *
-	 * Returned in ascending runtime sequence order (or creation order when
-	 * sequence is unavailable).
-	 */
-	readonly listByThreadId: (
-		input: ListProjectionThreadActivitiesInput,
-	) => Effect.Effect<
-		ReadonlyArray<ProjectionThreadActivity>,
-		ProjectionRepositoryError
-	>;
+  /**
+   * List projected thread activity rows for a thread.
+   *
+   * Returned in ascending runtime sequence order (or creation order when
+   * sequence is unavailable).
+   */
+  readonly listByThreadId: (
+    input: ListProjectionThreadActivitiesInput,
+  ) => Effect.Effect<ReadonlyArray<ProjectionThreadActivity>, ProjectionRepositoryError>;
 
-	/**
-	 * Delete projected thread activity rows by thread.
-	 */
-	readonly deleteByThreadId: (
-		input: DeleteProjectionThreadActivitiesInput,
-	) => Effect.Effect<void, ProjectionRepositoryError>;
+  /**
+   * Delete projected thread activity rows by thread.
+   */
+  readonly deleteByThreadId: (
+    input: DeleteProjectionThreadActivitiesInput,
+  ) => Effect.Effect<void, ProjectionRepositoryError>;
 }
 
 /**
  * ProjectionThreadActivityRepository - Service tag for thread activity persistence.
  */
 export class ProjectionThreadActivityRepository extends ServiceMap.Service<
-	ProjectionThreadActivityRepository,
-	ProjectionThreadActivityRepositoryShape
->()(
-	"agents/persistence/Services/ProjectionThreadActivities/ProjectionThreadActivityRepository",
-) {}
+  ProjectionThreadActivityRepository,
+  ProjectionThreadActivityRepositoryShape
+>()("agents/persistence/Services/ProjectionThreadActivities/ProjectionThreadActivityRepository") {}

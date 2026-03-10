@@ -7,10 +7,10 @@
  * @module CheckpointDiffQuery
  */
 import type {
-	OrchestrationGetFullThreadDiffInput,
-	OrchestrationGetFullThreadDiffResult,
-	OrchestrationGetTurnDiffInput,
-	OrchestrationGetTurnDiffResult,
+  OrchestrationGetFullThreadDiffInput,
+  OrchestrationGetFullThreadDiffResult,
+  OrchestrationGetTurnDiffInput,
+  OrchestrationGetTurnDiffResult,
 } from "@agents/contracts";
 import type { Effect } from "effect";
 import { ServiceMap } from "effect";
@@ -21,32 +21,29 @@ import type { CheckpointServiceError } from "../Errors.ts";
  * CheckpointDiffQueryShape - Service API for checkpoint diff queries.
  */
 export interface CheckpointDiffQueryShape {
-	/**
-	 * Read the patch diff for a single turn checkpoint transition.
-	 *
-	 * Verifies checkpoint availability in both projection state and filesystem.
-	 */
-	readonly getTurnDiff: (
-		input: OrchestrationGetTurnDiffInput,
-	) => Effect.Effect<OrchestrationGetTurnDiffResult, CheckpointServiceError>;
+  /**
+   * Read the patch diff for a single turn checkpoint transition.
+   *
+   * Verifies checkpoint availability in both projection state and filesystem.
+   */
+  readonly getTurnDiff: (
+    input: OrchestrationGetTurnDiffInput,
+  ) => Effect.Effect<OrchestrationGetTurnDiffResult, CheckpointServiceError>;
 
-	/**
-	 * Read the full patch diff across a thread range of checkpoints.
-	 *
-	 * Delegates to turn diff with `fromTurnCount = 0`.
-	 */
-	readonly getFullThreadDiff: (
-		input: OrchestrationGetFullThreadDiffInput,
-	) => Effect.Effect<
-		OrchestrationGetFullThreadDiffResult,
-		CheckpointServiceError
-	>;
+  /**
+   * Read the full patch diff across a thread range of checkpoints.
+   *
+   * Delegates to turn diff with `fromTurnCount = 0`.
+   */
+  readonly getFullThreadDiff: (
+    input: OrchestrationGetFullThreadDiffInput,
+  ) => Effect.Effect<OrchestrationGetFullThreadDiffResult, CheckpointServiceError>;
 }
 
 /**
  * CheckpointDiffQuery - Service tag for checkpoint diff queries.
  */
 export class CheckpointDiffQuery extends ServiceMap.Service<
-	CheckpointDiffQuery,
-	CheckpointDiffQueryShape
+  CheckpointDiffQuery,
+  CheckpointDiffQueryShape
 >()("agents/checkpointing/Services/CheckpointDiffQuery") {}

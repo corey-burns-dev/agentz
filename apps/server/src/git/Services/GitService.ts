@@ -13,37 +13,34 @@ import { ServiceMap } from "effect";
 import type { GitCommandError } from "../Errors.ts";
 
 export interface ExecuteGitInput {
-	readonly operation: string;
-	readonly cwd: string;
-	readonly args: ReadonlyArray<string>;
-	readonly env?: NodeJS.ProcessEnv;
-	readonly allowNonZeroExit?: boolean;
-	readonly timeoutMs?: number;
-	readonly maxOutputBytes?: number;
+  readonly operation: string;
+  readonly cwd: string;
+  readonly args: ReadonlyArray<string>;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly allowNonZeroExit?: boolean;
+  readonly timeoutMs?: number;
+  readonly maxOutputBytes?: number;
 }
 
 export interface ExecuteGitResult {
-	readonly code: number;
-	readonly stdout: string;
-	readonly stderr: string;
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
 }
 
 /**
  * GitServiceShape - Service API for Git command execution.
  */
 export interface GitServiceShape {
-	/**
-	 * Execute a Git command.
-	 */
-	readonly execute: (
-		input: ExecuteGitInput,
-	) => Effect.Effect<ExecuteGitResult, GitCommandError>;
+  /**
+   * Execute a Git command.
+   */
+  readonly execute: (input: ExecuteGitInput) => Effect.Effect<ExecuteGitResult, GitCommandError>;
 }
 
 /**
  * GitService - Service for Git command execution.
  */
-export class GitService extends ServiceMap.Service<
-	GitService,
-	GitServiceShape
->()("agents/git/Services/GitService") {}
+export class GitService extends ServiceMap.Service<GitService, GitServiceShape>()(
+  "agents/git/Services/GitService",
+) {}
